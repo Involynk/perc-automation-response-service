@@ -1,0 +1,51 @@
+﻿{
+  "general_policy": "PERC admits students after an initial counseling session and a diagnostic assessment test to understand the student's current academic level. Admission is open to all motivated students.",
+  "admission_process": [
+    {
+      "step": 1,
+      "title": "Book a Demo",
+      "description": "Schedule a free demo class or counseling call to experience PERC teaching methodology firsthand."
+    },
+    {
+      "step": 2,
+      "title": "Visit Campus",
+      "description": "Visit the campus in Begur, Bengaluru. Meet the faculty, see the facilities, and understand PERC approach."
+    },
+    {
+      "step": 3,
+      "title": "Diagnostic Assessment",
+      "description": "Appear for a diagnostic assessment test to help PERC understand the student level and allocate the appropriate batch."
+    },
+    {
+      "step": 4,
+      "title": "Choose Program",
+      "description": "Select the right program based on academic goals. PERC counselors will help make the best choice."
+    },
+    {
+      "step": 5,
+      "title": "Start Learning",
+      "description": "Complete admission formalities and begin your learning journey with personalized attention and expert guidance."
+    }
+  ],
+  "program_eligibility": [
+    { "program": "PERC Ignite",        "min_class": "Class 6",  "max_class": "Class 6",  "notes": "Open to all Class 6 students" },
+    { "program": "PERC Explorer",      "min_class": "Class 7",  "max_class": "Class 7",  "notes": "Open to all Class 7 students" },
+    { "program": "PERC Challenger",    "min_class": "Class 8",  "max_class": "Class 8",  "notes": "Open to all Class 8 students" },
+    { "program": "PERC Achiever",      "min_class": "Class 9",  "max_class": "Class 9",  "notes": "Open to all Class 9 students" },
+    { "program": "PERC Champion",      "min_class": "Class 10", "max_class": "Class 10", "notes": "Open to all Class 10 students" },
+    { "program": "NEET Foundation",    "min_class": "Class 9",  "max_class": "Class 10", "notes": "Students aspiring for NEET medical entrance" },
+    { "program": "NEET UG",            "min_class": "Class 11", "max_class": "Class 12", "notes": "Students targeting NEET UG after Class 12" },
+    { "program": "JEE Foundation",     "min_class": "Class 9",  "max_class": "Class 10", "notes": "Students aspiring for JEE engineering entrance" },
+    { "program": "IIT-JEE Advanced",   "min_class": "Class 11", "max_class": "Class 12", "notes": "Students targeting JEE Main and JEE Advanced" },
+    { "program": "KCET Crash Course",  "min_class": "Class 12", "max_class": "Class 12", "notes": "Karnataka students targeting KCET" },
+    { "program": "CBSE Board Coaching","min_class": "Class 10", "max_class": "Class 12", "notes": "Students under CBSE curriculum" },
+    { "program": "ICSE Board Coaching","min_class": "Class 9",  "max_class": "Class 10", "notes": "Students under ICSE curriculum" },
+    { "program": "Olympiad Foundation","min_class": "Class 6",  "max_class": "Class 10", "notes": "Students interested in NSO, IMO, NTSE" },
+    { "program": "One-to-One Tuition", "min_class": "Any",      "max_class": "Any",      "notes": "Any student needing personalized individual coaching" }
+  ],
+  "demo_class": {
+    "available": true,
+    "cost": "Free",
+    "description": "Students and parents can attend a free demo class to experience PERC teaching methodology before enrolling."
+  }
+}

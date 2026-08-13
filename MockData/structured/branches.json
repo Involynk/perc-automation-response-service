@@ -1,0 +1,38 @@
+﻿[
+  {
+    "id": "begur-main",
+    "name": "PERC — Begur Main Campus",
+    "type": "Main Campus",
+    "address": {
+      "street": "531, 20th Cross Rd, 1st Block, Visvapriya Layout",
+      "area": "Begur",
+      "city": "Bengaluru",
+      "state": "Karnataka",
+      "pincode": "560114",
+      "country": "India"
+    },
+    "geo": {
+      "latitude": 12.8703,
+      "longitude": 77.6153
+    },
+    "contact": {
+      "phones": ["+91 7259941873", "+91 8971019220"],
+      "email": "perc.personalised@gmail.com",
+      "support_email": "support@perc.co.in",
+      "whatsapp": "https://wa.me/917259941873"
+    },
+    "timings": {
+      "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+      "opens": "10:00",
+      "closes": "20:00",
+      "note": "Sunday closed"
+    },
+    "batch_slots": [
+      { "slot": "B1", "time": "4:30 PM - 6:30 PM" },
+      { "slot": "B2", "time": "6:30 PM - 8:30 PM" },
+      { "slot": "Weekend", "time": "Available for JEE and NEET preparation" }
+    ],
+    "nearby_landmarks": ["Visvapriya Nagar", "Begur Road", "Electronic City"],
+    "google_maps_url": "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3889.123456789!2d77.623!3d12.878"
+  }
+]

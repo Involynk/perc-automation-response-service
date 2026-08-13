@@ -1,0 +1,40 @@
+﻿{
+  "note": "PERC does not publicly list exact fee amounts on the website. All fees are shared during the counseling session. Contact PERC directly for current fee details.",
+  "contact_for_fees": {
+    "phone": "+91 7259941873",
+    "whatsapp": "https://wa.me/917259941873",
+    "email": "perc.personalised@gmail.com"
+  },
+  "general_info": {
+    "price_range": "moderate (indicated as Rs Rs on Google Business profile)",
+    "fee_discussion": "Fees are discussed transparently during the free counseling or demo session.",
+    "includes": [
+      "Printed study materials at program start",
+      "Additional worksheets and practice papers throughout the course",
+      "Weekly topic tests",
+      "Monthly comprehensive assessments",
+      "Full-length mock tests with All India ranking (for competitive exam batches)",
+      "Dedicated doubt-clearing sessions after every class",
+      "Monthly parent-teacher meetings",
+      "Progress reports",
+      "Regular WhatsApp and phone updates to parents"
+    ],
+    "additional_charges": "Not specified; contact PERC for details"
+  },
+  "programs": [
+    { "id": "perc-ignite",       "name": "PERC Ignite",        "duration": "1 Year",   "fee": "Contact for price" },
+    { "id": "perc-explorer",     "name": "PERC Explorer",      "duration": "1 Year",   "fee": "Contact for price" },
+    { "id": "perc-challenger",   "name": "PERC Challenger",    "duration": "1 Year",   "fee": "Contact for price" },
+    { "id": "perc-achiever",     "name": "PERC Achiever",      "duration": "1 Year",   "fee": "Contact for price" },
+    { "id": "perc-champion",     "name": "PERC Champion",      "duration": "1 Year",   "fee": "Contact for price" },
+    { "id": "neet-foundation",   "name": "NEET Foundation",    "duration": "1 Year",   "fee": "Contact for price" },
+    { "id": "neet-ug",           "name": "NEET UG",            "duration": "2 Years",  "fee": "Contact for price" },
+    { "id": "jee-foundation",    "name": "JEE Foundation",     "duration": "1 Year",   "fee": "Contact for price" },
+    { "id": "iit-jee-advanced",  "name": "IIT-JEE Advanced",   "duration": "2 Years",  "fee": "Contact for price" },
+    { "id": "kcet-crash-course", "name": "KCET Crash Course",  "duration": "6 Months", "fee": "Contact for price" },
+    { "id": "cbse-board-coaching","name": "CBSE Board Coaching","duration": "1 Year",  "fee": "Contact for price" },
+    { "id": "icse-board-coaching","name": "ICSE Board Coaching","duration": "1 Year",  "fee": "Contact for price" },
+    { "id": "olympiad-foundation","name": "Olympiad Foundation","duration": "1 Year",  "fee": "Contact for price" },
+    { "id": "one-to-one-tuition","name": "One-to-One Tuition", "duration": "Flexible", "fee": "Contact for price" }
+  ]
+}
