@@ -4,6 +4,7 @@ from app.db.models.fee import FeePolicyModel, ProgramFeeModel
 from app.db.models.eligibility import EligibilityPolicyModel, ProgramEligibilityModel
 from app.db.models.availability import AvailabilityInfoModel
 from app.db.models.admission_status import AdmissionStatusModel
+from app.db.models.knowledge_chunk import KnowledgeChunkModel
 
 __all__ = [
     "CourseModel",
@@ -14,4 +15,5 @@ __all__ = [
     "ProgramEligibilityModel",
     "AvailabilityInfoModel",
     "AdmissionStatusModel",
+    "KnowledgeChunkModel",
 ]
