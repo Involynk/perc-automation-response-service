@@ -1,26 +1,37 @@
-from app.rag.loader import DocumentLoader, LoadedDocument, TIER_3_EXCLUDED_FILES
-from app.rag.chunker import SemanticMarkdownChunker, RawChunk
-from app.rag.metadata import MetadataEnricher, EnrichedChunk
+"""
+RAG (Retrieval-Augmented Generation) Knowledge Module for PERC Response Service.
+"""
+
+from app.rag.chunker import RawChunk, SemanticMarkdownChunker
 from app.rag.embeddings import (
-    EmbeddingProvider,
     DeterministicMockEmbeddingProvider,
+    EmbeddingProvider,
     SentenceTransformerEmbeddingProvider,
     get_embedding_provider,
 )
-from app.rag.ingestion import KnowledgeIngestionPipeline, IngestionSummary
+from app.rag.hybrid_search import HybridSearch
+from app.rag.ingestion import IngestionSummary, KnowledgeIngestionPipeline
+from app.rag.keyword_search import KeywordSearch
+from app.rag.loader import DocumentLoader, LoadedDocument
+from app.rag.metadata import EnrichedChunk, MetadataEnricher
+from app.rag.retrieval import KnowledgeRetriever
+from app.rag.vector_search import VectorSearch
 
 __all__ = [
-    "DocumentLoader",
     "LoadedDocument",
-    "TIER_3_EXCLUDED_FILES",
-    "SemanticMarkdownChunker",
+    "DocumentLoader",
     "RawChunk",
-    "MetadataEnricher",
+    "SemanticMarkdownChunker",
     "EnrichedChunk",
+    "MetadataEnricher",
     "EmbeddingProvider",
     "DeterministicMockEmbeddingProvider",
     "SentenceTransformerEmbeddingProvider",
     "get_embedding_provider",
-    "KnowledgeIngestionPipeline",
     "IngestionSummary",
+    "KnowledgeIngestionPipeline",
+    "VectorSearch",
+    "KeywordSearch",
+    "HybridSearch",
+    "KnowledgeRetriever",
 ]

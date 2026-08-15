@@ -1,0 +1,124 @@
+[
+  {
+    "id": "eval_01_required_documents",
+    "query": "What documents are required for PERC admission?",
+    "expected_sources": ["required-documents.md", "admission-process.md"],
+    "category": "C7_REQUIRED_DOCUMENTS",
+    "should_return_results": true,
+    "description": "Direct inquiry on admission documentation checklist"
+  },
+  {
+    "id": "eval_02_hostel_accommodation",
+    "query": "Is hostel facility available for outstation students?",
+    "expected_sources": ["hostel-accommodation.md"],
+    "category": "C16_HOSTEL_ACCOMMODATION",
+    "should_return_results": true,
+    "description": "Hostel and boarding availability query"
+  },
+  {
+    "id": "eval_03_placement_outcomes",
+    "query": "What are the past NEET and JEE selection results and track record?",
+    "expected_sources": ["placement-career-outcomes.md"],
+    "category": "C17_PLACEMENT_CAREER_OUTCOMES",
+    "should_return_results": true,
+    "description": "Career outcomes and exam qualification achievements"
+  },
+  {
+    "id": "eval_04_language_medium",
+    "query": "What is the medium of instruction for classes? Are materials available in Kannada?",
+    "expected_sources": ["language-medium.md"],
+    "category": "C18_LANGUAGE_MEDIUM",
+    "should_return_results": true,
+    "description": "Language support and bilingual explanation policies"
+  },
+  {
+    "id": "eval_05_attendance_refund_policy",
+    "query": "What is PERC's testing, doubt clearing, and fee refund policy?",
+    "expected_sources": ["policies.md"],
+    "category": "C8_POLICIES",
+    "should_return_results": true,
+    "description": "Institutional policy regarding testing, doubts, and refunds"
+  },
+  {
+    "id": "eval_06_branch_location",
+    "query": "Where is the PERC Begur campus located and how do I reach it?",
+    "expected_sources": ["branch-location.md"],
+    "category": "C5_BRANCH_LOCATION",
+    "should_return_results": true,
+    "description": "Campus directions, landmarks, and bus routes"
+  },
+  {
+    "id": "eval_07_course_discovery",
+    "query": "Which coaching programs are available for foundation and board exams?",
+    "expected_sources": ["course-discovery.md"],
+    "category": "C1_COURSE_DISCOVERY",
+    "should_return_results": true,
+    "description": "Broad course discovery across grades and curricula"
+  },
+  {
+    "id": "eval_08_course_specific_ignite",
+    "query": "Tell me about the PERC Ignite program for Class 6 to 8 students",
+    "expected_sources": ["course-details.md"],
+    "category": "C2_COURSE_DETAILS",
+    "course_id": "perc-ignite",
+    "should_return_results": true,
+    "description": "Course-specific curriculum and schedule details"
+  },
+  {
+    "id": "eval_09_branch_specific_begur",
+    "query": "What are the contact details and visiting hours of the Begur Road branch?",
+    "expected_sources": ["branch-location.md"],
+    "category": "C5_BRANCH_LOCATION",
+    "branch_id": "begur-main",
+    "should_return_results": true,
+    "description": "Branch-specific location and helpline query"
+  },
+  {
+    "id": "eval_10_paraphrased_hostel",
+    "query": "Do you provide residential dorms or rooms for boys and girls from other cities?",
+    "expected_sources": ["hostel-accommodation.md"],
+    "category": "C16_HOSTEL_ACCOMMODATION",
+    "should_return_results": true,
+    "description": "Paraphrased semantic query for student housing"
+  },
+  {
+    "id": "eval_11_ambiguous_pricing",
+    "query": "How much does the coaching cost?",
+    "expected_sources": ["fees-pricing.md"],
+    "category": "C3_FEES_PRICING",
+    "should_return_results": true,
+    "description": "Under-specified broad financial query"
+  },
+  {
+    "id": "eval_12_unrelated_negative_recipe",
+    "query": "What is the recipe for baking chocolate brownies?",
+    "expected_sources": [],
+    "category": null,
+    "should_return_results": false,
+    "description": "Completely unrelated culinary query"
+  },
+  {
+    "id": "eval_13_unrelated_negative_tire",
+    "query": "How do I replace a punctured bicycle tube?",
+    "expected_sources": [],
+    "category": null,
+    "should_return_results": false,
+    "description": "Completely unrelated mechanical query"
+  },
+  {
+    "id": "eval_14_grievance_escalation",
+    "query": "How can I escalate a complaint or grievance to senior management?",
+    "expected_sources": ["grievance-human-handoff.md"],
+    "category": "C15_GRIEVANCE_HUMAN_HANDOFF",
+    "should_return_results": true,
+    "description": "Grievance redressal and human escalation procedure"
+  },
+  {
+    "id": "eval_15_course_comparison",
+    "query": "What is the difference between PERC Ignite and PERC Explorer programs?",
+    "expected_sources": ["comparison.md", "course-details.md"],
+    "category": "C10_COMPARISON",
+    "should_return_results": true,
+    "description": "Curriculum and intensity comparison between programs"
+  }
+]
