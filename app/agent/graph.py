@@ -105,7 +105,10 @@ def build_response_graph() -> Any:
         updated = ambiguity_node(as_obj)
         # state may be model or dict; normalize metadata extraction
         base_meta = state.metadata if hasattr(state, "metadata") else (state.get("metadata") or {})
-        return {"metadata": {**(base_meta or {}), **(updated.metadata or {})}}
+        return {
+            "metadata": {**(base_meta or {}), **(updated.metadata or {})},
+            "ambiguity": updated.ambiguity.model_dump() if hasattr(updated.ambiguity, "model_dump") else updated.ambiguity,
+        }
 
     def _wrap_routing(state: dict, runtime=None) -> dict:
         from app.schemas.agent import AgentState as _AS

@@ -1,4 +1,5 @@
-﻿from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict
+from pydantic import BaseModel, Field, field_validator
 
 
 class ResponseRequest(BaseModel):
@@ -15,6 +16,10 @@ class ResponseRequest(BaseModel):
         min_length=1,
         max_length=2000,
         description="Student query text message",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional request metadata and conversation context",
     )
 
     @field_validator("session_id")
