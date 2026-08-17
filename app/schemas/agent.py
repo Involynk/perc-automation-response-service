@@ -136,3 +136,5 @@ class AgentState(BaseModel):
         default=False, description="Whether query requires human intervention"
     )
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Session and execution metadata")
+    # Result check produced in Phase 5E prior to answer generation
+    result_check: Optional[Any] = Field(default=None, description="Structured result check and evidence summary")

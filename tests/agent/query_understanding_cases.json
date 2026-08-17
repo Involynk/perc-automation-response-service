@@ -1,0 +1,203 @@
+[
+  {
+    "id": "C1-001",
+    "category": "C1_COURSE_DISCOVERY",
+    "query": "What courses do you offer at PERC?",
+    "expected_primary_intent": "C1_COURSE_DISCOVERY",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/course-discovery.md",
+    "source_snippet": "Course Categories Available"
+  },
+  {
+    "id": "C2-001",
+    "category": "C2_COURSE_DETAILS",
+    "query": "Tell me about PERC Champion for Class 10",
+    "expected_primary_intent": "C2_COURSE_DETAILS",
+    "expected_secondary_intents": [],
+    "expected_entities": {"program": "PERC Champion"},
+    "context": [],
+    "source_file": "MockData/unstructured/course-details.md",
+    "source_snippet": "PERC Champion is the flagship Class 10 program"
+  },
+  {
+    "id": "C3-001",
+    "category": "C3_FEES_PRICING",
+    "query": "How can I find the fee for NEET UG?",
+    "expected_primary_intent": "C3_FEES_PRICING",
+    "expected_secondary_intents": [],
+    "expected_entities": {"program": "NEET UG"},
+    "context": [],
+    "source_file": "MockData/unstructured/fees-pricing.md",
+    "source_snippet": "To obtain the current fee for any program"
+  },
+  {
+    "id": "C4-001",
+    "category": "C4_ELIGIBILITY",
+    "query": "Who can join the NEET Foundation program?",
+    "expected_primary_intent": "C4_ELIGIBILITY",
+    "expected_secondary_intents": [],
+    "expected_entities": {"program": "NEET Foundation"},
+    "context": [],
+    "source_file": "MockData/unstructured/eligibility.md",
+    "source_snippet": "NEET Foundation | Classes 9-10"
+  },
+  {
+    "id": "C5-001",
+    "category": "C5_BRANCH_LOCATION",
+    "query": "Where is PERC located?",
+    "expected_primary_intent": "C5_BRANCH_LOCATION",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/branch-location.md",
+    "source_snippet": "531, 20th Cross Rd, 1st Block, Visvapriya Layout"
+  },
+  {
+    "id": "C6-001",
+    "category": "C6_ADMISSION_PROCESS",
+    "query": "How do I take admission at PERC?",
+    "expected_primary_intent": "C6_ADMISSION_PROCESS",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/admission-process.md",
+    "source_snippet": "Step 1: Book a Free Demo"
+  },
+  {
+    "id": "C7-001",
+    "category": "C7_REQUIRED_DOCUMENTS",
+    "query": "What documents are required for admission?",
+    "expected_primary_intent": "C7_REQUIRED_DOCUMENTS",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/required-documents.md",
+    "source_snippet": "Commonly Required Documents"
+  },
+  {
+    "id": "C8-001",
+    "category": "C8_POLICIES",
+    "query": "What is your batch size policy?",
+    "expected_primary_intent": "C8_POLICIES",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/policies.md",
+    "source_snippet": "Batch Size Policy"
+  },
+  {
+    "id": "C9-001",
+    "category": "C9_AVAILABILITY_STATUS",
+    "query": "Are admissions open right now?",
+    "expected_primary_intent": "C9_AVAILABILITY_STATUS",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/availability-status.md",
+    "source_snippet": "Admissions: OPEN"
+  },
+  {
+    "id": "C10-001",
+    "category": "C10_COMPARISON",
+    "query": "How is PERC different from large coaching chains?",
+    "expected_primary_intent": "C10_COMPARISON",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/comparison.md",
+    "source_snippet": "What Makes PERC Different"
+  },
+  {
+    "id": "C11-001",
+    "category": "C11_MULTI_INTENT",
+    "query": "What are the fees for IIT-JEE Advanced and what documents are required?",
+    "expected_primary_intent": "C11_MULTI_INTENT",
+    "expected_secondary_intents": ["C3_FEES_PRICING", "C7_REQUIRED_DOCUMENTS"],
+    "expected_entities": {"program": "IIT-JEE Advanced"},
+    "context": [],
+    "source_file": "MockData/unstructured/multi-intent.md",
+    "source_snippet": "Fees + Eligibility"
+  },
+  {
+    "id": "C12-001",
+    "category": "C12_FOLLOW_UP_CONTEXTUAL",
+    "query": "What time are the classes?",
+    "expected_primary_intent": "C12_FOLLOW_UP_CONTEXTUAL",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [
+      {"speaker": "user", "text": "Tell me about the NEET UG program."}
+    ],
+    "source_file": "MockData/unstructured/follow-up-contextual.md",
+    "source_snippet": "What time are the classes?"
+  },
+  {
+    "id": "C13-001",
+    "category": "C13_AMBIGUOUS_INCOMPLETE",
+    "query": "What is the fee?",
+    "expected_primary_intent": "C13_AMBIGUOUS_INCOMPLETE",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "expected_ambiguity": {"is_ambiguous": true, "missing_information": ["program"]},
+    "context": [],
+    "source_file": "MockData/unstructured/ambiguous-incomplete.md",
+    "source_snippet": "Vague Program Query"
+  },
+  {
+    "id": "C14-001",
+    "category": "C14_OUT_OF_SCOPE_ESCALATION",
+    "query": "Which is better, PERC or BYJU'S?",
+    "expected_primary_intent": "C14_OUT_OF_SCOPE_ESCALATION",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/out-of-scope-escalation.md",
+    "source_snippet": "Queries About Other Institutes"
+  },
+  {
+    "id": "C15-001",
+    "category": "C15_GRIEVANCE_HUMAN_HANDOFF",
+    "query": "I want to file a complaint about a teacher.",
+    "expected_primary_intent": "C15_GRIEVANCE_HUMAN_HANDOFF",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/grievance-human-handoff.md",
+    "source_snippet": "When to Escalate to Human"
+  },
+  {
+    "id": "C16-001",
+    "category": "C16_HOSTEL_ACCOMMODATION",
+    "query": "Do you provide hostel accommodation?",
+    "expected_primary_intent": "C16_HOSTEL_ACCOMMODATION",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/hostel-accommodation.md",
+    "source_snippet": "Does PERC Offer Hostel or Accommodation Facilities?"
+  },
+  {
+    "id": "C17-001",
+    "category": "C17_PLACEMENT_CAREER_OUTCOMES",
+    "query": "Do you have placement records for students?",
+    "expected_primary_intent": "C17_PLACEMENT_CAREER_OUTCOMES",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/placement-career-outcomes.md",
+    "source_snippet": "PERC does not operate as a placement agency"
+  },
+  {
+    "id": "C18-001",
+    "category": "C18_LANGUAGE_MEDIUM",
+    "query": "What is the medium of instruction?",
+    "expected_primary_intent": "C18_LANGUAGE_MEDIUM",
+    "expected_secondary_intents": [],
+    "expected_entities": {},
+    "context": [],
+    "source_file": "MockData/unstructured/language-medium.md",
+    "source_snippet": "Primary Language of Instruction"
+  }
+]
