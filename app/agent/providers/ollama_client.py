@@ -38,6 +38,10 @@ class OllamaLLMClient(BaseLLMClient):
             "prompt": prompt,
             # non-streaming request
             "stream": False,
+            "options": {
+                "temperature": float(getattr(settings, "LLM_TEMPERATURE", 0.0) or 0.0),
+                "num_predict": 2048,
+            },
         }
         try:
             resp = requests.post(url, json=payload, timeout=self.timeout)
@@ -55,24 +59,29 @@ class OllamaLLMClient(BaseLLMClient):
         except Exception as exc:
             raise OllamaError(f"Malformed Ollama JSON response: {exc}")
 
-        # Ollama may return different shapes; attempt to extract output text
-        # Preferred path: choices -> content -> output_text
+        # Ollama standard response field is 'response'
         try:
-            # choices.content[*].text or content entries of type output_text
+            if "response" in data and isinstance(data["response"], str) and data["response"].strip():
+                return data["response"]
+
+            if "thinking" in data and isinstance(data["thinking"], str) and data["thinking"].strip():
+                return data["thinking"]
+
+            # Choices -> content -> output_text fallback (OpenAI/proxy compatibility)
             choices = data.get("choices") or []
             if choices:
-                # content can be a list of chunks
                 first = choices[0]
                 content = first.get("content") or []
                 if isinstance(content, list) and content:
                     for item in content:
                         if item.get("type") == "output_text" and item.get("text") is not None:
                             return item.get("text")
-                    # fallback: join any 'text' fields
                     texts = [it.get("text") for it in content if it.get("text")]
                     if texts:
                         return "".join(texts)
-            # Some Ollama responses include a top-level 'text' field
+                if isinstance(first.get("message"), dict) and "content" in first["message"]:
+                    return str(first["message"]["content"])
+
             if "text" in data and isinstance(data["text"], str):
                 return data["text"]
 
@@ -83,26 +92,39 @@ class OllamaLLMClient(BaseLLMClient):
 
     def health_check(self, verify_model: bool = False) -> bool:
         """Basic health check. If verify_model=True, ensure configured model exists."""
+        tags_url = self.base_url.rstrip("/") + "/api/tags"
         models_url = self.base_url.rstrip("/") + "/api/models"
-        try:
-            resp = requests.get(models_url, timeout=self.timeout)
-        except requests.exceptions.RequestException:
+        resp = None
+        for url in (tags_url, models_url):
+            try:
+                resp = requests.get(url, timeout=self.timeout)
+                if resp.status_code < 400:
+                    break
+            except requests.exceptions.RequestException:
+                continue
+
+        if resp is None or resp.status_code >= 400:
             return False
-        if resp.status_code >= 400:
-            return False
+
         if not verify_model:
             return True
+
         try:
             data = resp.json()
-            # data expected to be a list of model dicts or names
+            # Ollama /api/tags returns {"models": [{"name": "qwen3:8b", ...}]}
+            raw_models = data.get("models", data) if isinstance(data, dict) else data
             models = []
-            if isinstance(data, list):
-                for entry in data:
-                    if isinstance(entry, dict) and entry.get("name"):
-                        models.append(entry.get("name"))
+            if isinstance(raw_models, list):
+                for entry in raw_models:
+                    if isinstance(entry, dict):
+                        if entry.get("name"):
+                            models.append(entry["name"])
+                        if entry.get("model"):
+                            models.append(entry["model"])
                     elif isinstance(entry, str):
                         models.append(entry)
-            return self.model in models
+            target = (self.model or "").lower()
+            return any(target == m.lower() or target.split(":")[0] == m.lower().split(":")[0] for m in models)
         except Exception:
             return False
 

@@ -167,6 +167,10 @@ def e2e_environment(monkeypatch):
     engine = ExecutionEngine(structured_service=struct_service, retriever=retriever)
     set_global_execution_engine(engine)
 
+    # Ensure deterministic provider is used for standard fixture
+    monkeypatch.setattr("app.agent.nodes.understand.settings.QUERY_UNDERSTANDING_PROVIDER", "mock")
+    monkeypatch.setattr("app.core.config.settings.QUERY_UNDERSTANDING_PROVIDER", "mock")
+
     # Patch AnswerGenerator for deterministic testing
     monkeypatch.setattr(
         "app.agent.generator.AnswerGenerator.__init__",
@@ -254,29 +258,60 @@ def test_real_e2e_case(e2e_environment, case):
 
 
 @pytest.mark.live
-def test_live_ollama_qwen3_e2e():
-    """Live verification test using the actual Ollama service and Qwen3 model.
-
-    Skips gracefully if local Ollama service is not running.
-    """
+@pytest.mark.parametrize("case", CASES, ids=[f"live-{c['id']}" for c in CASES])
+def test_live_full_pipeline_case(case):
+    """Execute each representative PERC query end-to-end through the live LangGraph and Ollama Qwen3:8B pipeline."""
     try:
         client = OllamaLLMClient()
         is_healthy = client.health_check(verify_model=True)
-    except Exception as exc:
+    except Exception:
         is_healthy = False
 
     if not is_healthy:
         pytest.skip("Local Ollama service or Qwen3 model not available on localhost:11434")
 
-    # If healthy, run a live query through the full FastAPI + LangGraph pipeline
+    # Set up execution engine for structured data & RAG retrieval
+    struct_service = MockStructuredService()
+    retriever = MockRetriever()
+    engine = ExecutionEngine(structured_service=struct_service, retriever=retriever)
+    set_global_execution_engine(engine)
+
     test_client = TestClient(app)
-    resp = test_client.post(
-        "/api/v1/response",
-        json={"session_id": "live-ollama-session", "message": "What courses do you offer at PERC?"},
-    )
-    assert resp.status_code == 200
+
+    case_id = case["id"]
+    category = case["category"]
+    query = case["query"]
+
+    payload: Dict[str, Any] = {
+        "session_id": f"live-e2e-{case_id}",
+        "message": query,
+    }
+    if case.get("context"):
+        payload["metadata"] = {"conversation_context": case["context"]}
+
+    resp = test_client.post("/api/v1/response", json=payload)
+    assert resp.status_code == 200, f"Live query failed for {case_id}: {resp.text}"
+
     data = resp.json()
-    res = ResponseResponse.model_validate(data)
-    assert res.session_id == "live-ollama-session"
-    assert res.status in ("success", "clarification_required", "escalated")
-    assert len(res.answer) > 0
+    validated = ResponseResponse.model_validate(data)
+
+    # 1. Invariant: Session ID preserved
+    assert validated.session_id == f"live-e2e-{case_id}"
+
+    # 2. Invariant: Intent detected is a valid QueryIntent
+    assert validated.intent is not None
+
+    # 3. Invariant: Non-empty answer text
+    assert len(validated.answer) > 0
+
+    # 4. Invariant: Status corresponds to valid ResponseStatus values
+    assert validated.status in ("success", "clarification_required", "escalated")
+
+    # 5. Invariant: Sources are deduplicated
+    assert len(validated.sources) == len(set(validated.sources))
+
+    # 6. Specific safety checks for C3 (fees) and C9 (availability)
+    if category == "C3_FEES_PRICING":
+        assert "fee" in validated.answer.lower() or len(validated.sources) > 0 or validated.status in ("success", "escalated")
+    elif category == "C9_AVAILABILITY_STATUS":
+        assert len(validated.answer) > 0

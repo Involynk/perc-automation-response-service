@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # Ollama-specific configuration
     OLLAMA_BASE_URL: str | None = "http://localhost:11434"
     OLLAMA_MODEL: str | None = "qwen3:8b"
-    OLLAMA_TIMEOUT: int | None = 120
+    OLLAMA_TIMEOUT: int | None = 180
 
     model_config = SettingsConfigDict(
         env_file=".env",

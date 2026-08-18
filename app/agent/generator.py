@@ -41,8 +41,30 @@ class AnswerGenerator:
     def generate(self, state: AgentState) -> DraftAnswerModel:
         prompt = self._build_prompt(state)
         raw = self.client.generate(prompt)
+
+        # Extract JSON from potential markdown code fences or think tags
+        raw_text = raw.strip() if isinstance(raw, str) else str(raw)
+        if "<think>" in raw_text and "</think>" in raw_text:
+            raw_text = raw_text.split("</think>", 1)[-1].strip()
+        if "```" in raw_text:
+            lines = raw_text.splitlines()
+            code_lines = []
+            inside = False
+            for line in lines:
+                if line.strip().startswith("```"):
+                    inside = not inside
+                    continue
+                if inside:
+                    code_lines.append(line)
+            if code_lines:
+                raw_text = "\n".join(code_lines).strip()
+        start = raw_text.find("{")
+        end = raw_text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            raw_text = raw_text[start : end + 1]
+
         try:
-            data = json.loads(raw) if isinstance(raw, str) else raw
+            data = json.loads(raw_text)
         except Exception as exc:
             raise ValueError(f"LLM returned non-JSON output during generation: {exc}")
 

@@ -19,15 +19,8 @@ def understand_node(state: AgentState) -> AgentState:
     # allow optional conversation context passed via state.metadata
     context = state.metadata.get("conversation_context") if isinstance(state.metadata, dict) else None
 
-    # Select provider based on app settings. For 'llm' provider, a client must be supplied
-    # by the runtime environment. For tests, the default setting is 'mock'.
-    provider = None
-    if settings.QUERY_UNDERSTANDING_PROVIDER.lower() == "llm":
-        # In production the application should inject a configured LLM client into the factory.
-        # Here we raise if none is available to avoid accidental live calls during tests.
-        raise RuntimeError("LLM provider selected but no LLM client was injected. Configure the application to provide a client.")
-    else:
-        provider = get_query_understanding_provider()
+    # Select provider based on app settings via factory
+    provider = get_query_understanding_provider()
 
     try:
         result = provider.analyze(state.query or "", context=context)
