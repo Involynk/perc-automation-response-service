@@ -1,0 +1,67 @@
+services:
+  response-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: perc-response-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg://postgres:postgres_password@postgres:5432/perc_db}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - QUERY_UNDERSTANDING_PROVIDER=${QUERY_UNDERSTANDING_PROVIDER:-mock}
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-qwen3:8b}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.0}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
+      - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-180}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    networks:
+      - perc-network
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: perc-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${POSTGRES_DB:-perc_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d perc_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - perc-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: perc-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - perc-network
+
+volumes:
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
+
+networks:
+  perc-network:
+    driver: bridge

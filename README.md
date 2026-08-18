@@ -2,260 +2,190 @@
 
 > **Deterministic, Fact-Grounded, Hybrid AI Response Service for Educational Inquiries**
 
-The **PERC Response Service** is a high-reliability AI query-answering engine engineered specifically for the PERC educational institute. It processes parent and student inquiries across admissions, courses, fees, branches, eligibility, and institutional policies.
+The **PERC Response Service** is a high-reliability, production-ready AI query-answering engine engineered specifically for the PERC educational institute. It processes prospective and enrolled student/parent inquiries across course discovery, syllabus details, fee structures, center locations, eligibility criteria, admission milestones, batch seat availability, and institutional policies.
 
-The service uses a **multi-stage LangGraph pipeline** running behind a **FastAPI** web interface. It combines **deterministic PostgreSQL database tools** with **hybrid semantic RAG retrieval**, enforces strict fact-protection guardrails against hallucinated fee and seat figures, and synthesizes answers via local **Ollama (Qwen3:8B)** or deterministic test providers.
+The service combines **deterministic PostgreSQL relational database tools** with **hybrid semantic RAG knowledge retrieval** in a compiled **LangGraph multi-stage pipeline** exposed through a **FastAPI** web service. It enforces strict fact-protection guardrails against hallucinated fee and seat figures, and synthesizes answers via local **Ollama (Qwen3:8B)** or deterministic test providers.
 
 ---
 
 ## Table of Contents
 
 1. [Project Overview](#1-project-overview)
-2. [Architecture](#2-architecture)
-3. [Complete Request Flow](#3-complete-request-flow)
+2. [Complete Architecture](#2-complete-architecture)
+3. [LangGraph Pipeline Nodes](#3-langgraph-pipeline-nodes)
 4. [Query Understanding (C1–C18)](#4-query-understanding-c1c18)
-5. [Routing Matrix](#5-routing-matrix)
-6. [Structured Data Layer](#6-structured-data-layer)
-7. [RAG Knowledge Layer](#7-rag-knowledge-layer)
-8. [Safety & Fact Protection Guardrails](#8-safety--fact-protection-guardrails)
-9. [Answer Generation](#9-answer-generation)
-10. [Draft Validation](#10-draft-validation)
+5. [Deterministic Routing Logic](#5-deterministic-routing-logic)
+6. [Structured Data Layer & Tools](#6-structured-data-layer--tools)
+7. [RAG Knowledge Layer & Authority Rules](#7-rag-knowledge-layer--authority-rules)
+8. [Result Check & Evidence Verification](#8-result-check--evidence-verification)
+9. [Answer Generation with Qwen3:8B](#9-answer-generation-with-qwen38b)
+10. [Draft Validation & Safety Guardrails](#10-draft-validation--safety-guardrails)
 11. [FastAPI API Specifications](#11-fastapi-api-specifications)
-12. [Configuration](#12-configuration)
-13. [Ollama + Qwen3 Setup](#13-ollama--qwen3-setup)
-14. [Project Structure](#14-project-structure)
-15. [Testing & Verification](#15-testing--verification)
-16. [Running Locally](#16-running-locally)
-17. [Development Phases Timeline](#17-development-phases-timeline)
-18. [Current Status](#18-current-status)
-19. [Production Readiness & Remaining Work](#19-production-readiness--remaining-work)
-20. [Quick Start](#20-quick-start)
+12. [Configuration & Environment Modes](#12-configuration--environment-modes)
+13. [Local Development & Operations](#13-local-development--operations)
+14. [Testing & Verification](#14-testing--verification)
+15. [Production Architecture & Deployment Notes](#15-production-architecture--deployment-notes)
+16. [Security Guidelines](#16-security-guidelines)
+17. [Project Directory Layout](#17-project-directory-layout)
+18. [Development Status & Roadmap](#18-development-status--roadmap)
 
 ---
 
 ## 1. Project Overview
 
 ### What the Service Does
-The PERC Response Service sits at the core of the PERC automation suite. When prospective students or parents submit inquiries via web or chat interfaces, this service:
-1. **Understands & Classifies**: Detects the user's primary intent, secondary intents, and relevant educational entities (classes, exams, courses, branches).
+The PERC Response Service sits at the core of PERC's automated communications. When students or parents ask questions via web or chat interfaces, this service:
+1. **Understands Intent & Entities**: Accurately classifies user queries into one of 18 canonical intent categories (C1–C18) and extracts relevant academic entities (courses, exams, target classes, branches).
 2. **Identifies Ambiguity**: Clarifies incomplete queries before attempting retrieval.
 3. **Routes Strategically**: Chooses between deterministic relational database lookup, hybrid RAG knowledge search, multi-intent decomposition, human escalation, or safe stops.
 4. **Executes Securely**: Invokes read-only structured tools against PostgreSQL / Supabase or retrieves authoritative markdown chunks.
 5. **Verifies Evidence**: Evaluates whether retrieved data is sufficient and conflict-free prior to LLM invocation.
-6. **Generates Grounded Answers**: Constructs structured prompts for Ollama Qwen3:8B (or deterministic providers) using strict evidence gating.
+6. **Generates Grounded Answers**: Synthesizes clear, student-friendly responses exclusively from verified evidence using Ollama Qwen3:8B.
 7. **Validates Drafts Deterministically**: Scans generated drafts for ungrounded numbers, unsupported claims, or missing disclaimers.
-8. **Delivers Standard Responses**: Returns clean, user-facing `ResponseResponse` contracts with explicit sources and status tags.
+8. **Delivers Standard Contracts**: Returns clean, user-facing `ResponseResponse` payloads with explicit sources and status tags.
+
+### Purpose of the Hybrid Architecture
+Standard pure-LLM chatbots suffer from non-deterministic hallucination, which is unacceptable for institutional fee disclosures, eligibility constraints, and seat quotas. Pure search engines, conversely, lack conversational synthesis. The **Hybrid Response Service** solves this by:
+- Storing **hard quantitative facts** (fees, batch sizes, prerequisites, center details) in **PostgreSQL relational tables** accessed via locked, typed tools.
+- Storing **pedagogical, descriptive, and policy context** (scholarship rules, refund terms, curriculum details) in a **hybrid vector/keyword RAG index**.
+- Using **Qwen3:8B strictly as a synthesis engine** bounded by verified retrieval evidence.
 
 ---
 
-## 2. Architecture
+## 2. Complete Architecture
 
 ```text
-               +----------------------------------+
-               |        Client Application        |
-               +----------------------------------+
-                                 |
-                                 | HTTP POST /api/v1/response
-                                 v
-               +----------------------------------+
-               |        FastAPI Web Server        |
-               |      (Dependency Injection)      |
-               +----------------------------------+
-                                 |
-                                 | get_response_graph()
-                                 v
-               +----------------------------------+
-               |       Compiled LangGraph         |
-               |          (StateGraph)            |
-               +----------------------------------+
-                                 |
-                     +-----------v-----------+
-                     |    1. initialize      |
-                     +-----------+-----------+
-                                 |
-                     +-----------v-----------+
-                     |    2. understand      | <--- MockDataProvider / Ollama Qwen3
-                     +-----------+-----------+
-                                 |
-                     +-----------v-----------+
-                     |    3. ambiguity       |
-                     +-----------+-----------+
-                                 |
-                     +-----------v-----------+
-                     |    4. routing         |
-                     +-----------+-----------+
-                                 |
-                     +-----------v-----------+
-                     |    5. execution       |
-                     +-----+-----------+-----+
-                           |           |
-           +---------------+           +---------------+
-           |                                           |
-           v                                           v
-+-----------------------+                   +----------------------+
-|   Structured Tools    |                   |      Hybrid RAG      |
-|  - get_course_info    |                   |  - Vector Search     |
-|  - get_fee            |                   |  - BM25 Keyword      |
-|  - get_branch_info    |                   |  - RRF Fusion Ranker |
-|  - get_eligibility    |                   +----------------------+
-|  - get_availability   |                              |
-|  - get_admission_*    |                              v
-+-----------+-----------+                   +----------------------+
-            |                               |  PERC Knowledge Base |
-            v                               |  (18 Markdown Docs)  |
-+-----------------------+                   +----------------------+
-| StructuredDataService |
-+-----------+-----------+
-            |
-            v
-+-----------------------+
-|  PostgreSQL/Supabase  |
-|  (6 Core Relational   |
-|   Tables)             |
-+-----------------------+
-           |                                           |
-           +---------------+           +---------------+
-                           |           |
-                     +-----v-----------v-----+
-                     |    6. result_check    | (Deterministic Evidence Gate)
-                     +-----------+-----------+
-                                 |
-                     +-----------v-----------+
-                     |    7. generation      | <--- Ollama Qwen3:8B / Generator
-                     +-----------+-----------+
-                                 |
-                     +-----------v-----------+
-                     | 8. result_validation  | (Deterministic Safety Filter)
-                     +-----------+-----------+
-                                 |
-                                 v
-               +----------------------------------+
-               |     ResponseResponse Schema      |
-               |  (session_id, answer, status,    |
-               |   sources, intent, clarification)|
-               +----------------------------------+
+Client Application
+  ↓
+FastAPI Web Server
+  ↓
+Response API (/api/v1/response, /response)
+  ↓
+LangGraph Response Pipeline
+  ↓
+Initialize Node
+  ↓
+Query Understanding Node (MockDataProvider / LLMQueryProvider via Ollama Qwen3:8B)
+  ↓
+Ambiguity Detection Node
+  ↓
+Routing Node (Deterministic Decision Matrix)
+  ↓
+Execution Node
+  ├── Structured Tools → StructuredDataService → PostgreSQL / Supabase
+  └── RAG Retrieval → Hybrid Knowledge Retriever → pgvector + BM25 + RRF
+  ↓
+Result Check Node (Deterministic Evidence Gatekeeper)
+  ↓
+Qwen3 Answer Generation Node (AnswerGenerator with Evidence-Locked Prompt)
+  ↓
+Draft Validation Node (Fact & Guardrail Scanner)
+  ↓
+ResponseResponse Schema
+  ↓
+Client Application
 ```
-
-### Role of Ollama / Qwen3:8B
-- **Query Understanding (Production Mode)**: When `QUERY_UNDERSTANDING_PROVIDER=llm`, Qwen3:8B analyzes complex student queries and outputs JSON containing intent, entities, and ambiguity indicators.
-- **Answer Generation**: In `AnswerGenerator`, Qwen3:8B receives locked evidence (extracted structured facts and RAG snippets) and formats the final student response while adhering to strict factual bounds.
-- **Testing Isolation**: In test and CI environments, dependency injection isolates Ollama so 100% of pipeline invariants execute without requiring a GPU or active Ollama daemon.
 
 ---
 
-## 3. Complete Request Flow
+## 3. LangGraph Pipeline Nodes
 
-When a client sends `POST /api/v1/response` with `{"session_id": "...", "message": "..."}`, execution proceeds through 8 sequential LangGraph nodes:
+The compiled `StateGraph` in `app/agent/graph.py` executes 8 discrete, sequential nodes:
 
-```text
-POST /api/v1/response
-   │
-   ├─► 1. initialize_node
-   │      - Validates session_id and query message.
-   │      - Initializes clean AgentState and merges incoming conversation metadata.
-   │
-   ├─► 2. understand_node
-   │      - Invokes query understanding provider (MockDataProvider or Ollama LLM client).
-   │      - Populates state.intent (QueryIntent), state.secondary_intents, state.entities, state.ambiguity.
-   │
-   ├─► 3. ambiguity_node
-   │      - Checks if state.ambiguity.is_ambiguous is True.
-   │      - Populates clarification_required=True and context-specific clarification_question.
-   │
-   ├─► 4. routing_node
-   │      - Runs deterministic decide_routing logic across C1–C18 categories.
-   │      - Chooses route: STRUCTURED_TOOL, RAG, MULTI_INTENT, CLARIFICATION, HUMAN_HANDOFF, or SAFE_STOP.
-   │
-   ├─► 5. execution_node
-   │      - Executes chosen path via ExecutionEngine.
-   │      - Invokes Structured Tools against StructuredDataService or queries hybrid RAG retriever.
-   │      - Records ToolResult objects and RetrievedDocument records on the state.
-   │
-   ├─► 6. result_check_node
-   │      - Evaluates evidence sufficiency, detects conflicts, and checks tool success.
-   │      - Flags whether generation should proceed, require clarification, or trigger human handoff.
-   │
-   ├─► 7. generation_node
-   │      - If evidence is sufficient: compiles prompt with locked evidence and invokes AnswerGenerator.
-   │      - If evidence is insufficient/ambiguous: skips LLM generation and flags reason in metadata.
-   │
-   ├─► 8. result_validation_node
-   │      - Runs deterministic validation on draft answer (hallucination checks, groundedness, price bounds).
-   │      - Marks validation_status="validated" or escalates if guardrails fail.
-   │
-   └─► API Response Mapping
-          - Formats AgentState into standard ResponseResponse contract.
-          - Returns JSON to client with HTTP 200.
-```
+1. **`initialize`** (`app/agent/nodes/initialize.py`):
+   - Validates `session_id` and query `message`.
+   - Initializes a clean `AgentState` and ingests optional conversation context (`state.metadata["conversation_context"]`).
+2. **`understand`** (`app/agent/nodes/understand.py`):
+   - Invokes the configured query understanding provider (`MockDataProvider` in tests or `LLMQueryProvider` in production).
+   - Populates `state.intent`, `state.secondary_intents`, `state.entities`, and `state.ambiguity`.
+3. **`ambiguity`** (`app/agent/nodes/ambiguity.py`):
+   - Evaluates whether the query lacks essential parameters (e.g., asking for fees without specifying a course).
+   - Flags `clarification_required = True` and sets a contextual `clarification_question`.
+4. **`routing`** (`app/agent/nodes/routing.py`):
+   - Executes deterministic decision logic (`decide_routing`) across C1–C18 categories.
+   - Selects route: `STRUCTURED_TOOL`, `RAG`, `MULTI_INTENT`, `CLARIFICATION`, `HUMAN_HANDOFF`, or `SAFE_STOP`.
+5. **`execution`** (`app/agent/nodes/execution.py`):
+   - Executes the chosen route via `ExecutionEngine`.
+   - Calls read-only Structured Tools against `StructuredDataService` or performs hybrid retrieval over Markdown documents.
+   - Populates `state.tool_results` and `state.retrieved_documents`.
+6. **`result_check`** (`app/agent/nodes/result_check.py`):
+   - Evaluates whether retrieved evidence is sufficient, relevant, and free of contradictions.
+   - Dictates whether the pipeline proceeds to answer generation or fallbacks gracefully to human counseling.
+7. **`generation`** (`app/agent/nodes/generation.py`):
+   - Formats locked evidence and prompts `AnswerGenerator` (Ollama Qwen3:8B).
+   - Bypasses LLM generation if evidence is missing or if query is ambiguous/escalated.
+8. **`result_validation`** (`app/agent/nodes/result_validation.py`):
+   - Scans generated draft answers for ungrounded fees, seat counts, or hallucinated claims.
+   - Sets final validation status (`validated` or `escalated`).
 
 ---
 
 ## 4. Query Understanding (C1–C18)
 
-The system classifies inquiries into 18 canonical intent categories defined in PERC dataset research:
+The system classifies student and parent queries into 18 canonical intent categories:
 
-| Code | Intent Category | Example Student Query |
-|---|---|---|
-| **C1** | `C1_COURSE_DISCOVERY` | *"What courses do you offer at PERC?"* |
-| **C2** | `C2_COURSE_DETAILS` | *"Tell me about the 2-Year JEE Advanced program."* |
-| **C3** | `C3_FEES_PRICING` | *"How can I find the fee structure for NEET UG?"* |
-| **C4** | `C4_ELIGIBILITY` | *"Who can join the NEET Foundation program?"* |
-| **C5** | `C5_BRANCH_LOCATION` | *"Where is the PERC center located?"* |
-| **C6** | `C6_ADMISSION_PROCESS` | *"How do I enroll at PERC?"* |
-| **C7** | `C7_REQUIRED_DOCUMENTS` | *"What documents are needed for admission?"* |
-| **C8** | `C8_POLICIES` | *"What is your batch size and refund policy?"* |
-| **C9** | `C9_AVAILABILITY_STATUS` | *"Are admissions currently open for Class 11?"* |
-| **C10** | `C10_COMPARISON` | *"How is PERC different from large national chains?"* |
-| **C11** | `C11_MULTI_INTENT` | *"What is the fee for JEE and what documents are required?"* |
-| **C12** | `C12_FOLLOW_UP_CONTEXTUAL` | *"What time are the classes for that batch?"* |
-| **C13** | `C13_AMBIGUOUS_INCOMPLETE` | *"What is the fee?"* (missing program/grade) |
-| **C14** | `C14_OUT_OF_SCOPE_ESCALATION` | *"Which coaching is better, PERC or BYJU'S?"* |
-| **C15** | `C15_GRIEVANCE_HUMAN_HANDOFF` | *"I want to lodge a complaint about my teacher."* |
-| **C16** | `C16_HOSTEL_ACCOMMODATION` | *"Do you have hostel facilities for outstation students?"* |
-| **C17** | `C17_PLACEMENT_CAREER_OUTCOMES` | *"What are your historical student JEE ranks?"* |
-| **C18** | `C18_LANGUAGE_MEDIUM` | *"Is instruction in English or bilingual?"* |
+| Code | Intent Category | Description | Sample Query |
+|---|---|---|---|
+| **C1** | `C1_COURSE_DISCOVERY` | General inquiry on offerings | *"What courses do you offer at PERC?"* |
+| **C2** | `C2_COURSE_DETAILS` | Specific course curriculum & duration | *"Tell me about the 2-Year JEE Advanced program."* |
+| **C3** | `C3_FEES_PRICING` | Program fees & payment schedules | *"How can I find the fee structure for NEET UG?"* |
+| **C4** | `C4_ELIGIBILITY` | Class & prerequisite requirements | *"Who can join the NEET Foundation program?"* |
+| **C5** | `C5_BRANCH_LOCATION` | Center addresses & phone numbers | *"Where is the PERC center located?"* |
+| **C6** | `C6_ADMISSION_PROCESS` | Step-by-step onboarding | *"How do I enroll at PERC?"* |
+| **C7** | `C7_REQUIRED_DOCUMENTS`| Certificates & verification documents| *"What documents are needed for admission?"* |
+| **C8** | `C8_POLICIES` | Batch sizes, refund & transfer rules | *"What is your batch size and refund policy?"* |
+| **C9** | `C9_AVAILABILITY_STATUS`| Seat status & enrollment windows | *"Are admissions currently open for Class 11?"* |
+| **C10**| `C10_COMPARISON` | PERC methodology vs. other institutes| *"How is PERC different from large national chains?"* |
+| **C11**| `C11_MULTI_INTENT` | Queries combining multiple topics | *"What is the fee for JEE and what documents are needed?"*|
+| **C12**| `C12_FOLLOW_UP_CONTEXTUAL`| Context-dependent follow-up queries | *"What time are the classes for that batch?"* |
+| **C13**| `C13_AMBIGUOUS_INCOMPLETE`| Under-specified queries | *"What is the fee?"* (no course specified) |
+| **C14**| `C14_OUT_OF_SCOPE_ESCALATION`| Non-institutional / competitive queries| *"Which coaching is better, PERC or Allen?"* |
+| **C15**| `C15_GRIEVANCE_HUMAN_HANDOFF`| Complaints & escalation | *"I want to lodge a complaint about my batch teacher."* |
+| **C16**| `C16_HOSTEL_ACCOMMODATION`| Accommodation facilities | *"Do you have hostel facilities for outstation students?"*|
+| **C17**| `C17_PLACEMENT_CAREER_OUTCOMES`| Historical ranks & results | *"What are your historical student JEE ranks?"* |
+| **C18**| `C18_LANGUAGE_MEDIUM` | Medium of instruction | *"Is instruction in English or bilingual?"* |
 
-### Providers & Dependency Injection
-- **`MockDataProvider`**: Deterministic rule- and mock-based provider used during unit/integration tests and CI.
-- **`LLMQueryProvider`**: Production provider that formats user input + context into JSON extraction prompts for Qwen3:8B.
-- **`get_query_understanding_provider()`**: Factory function in `app/agent/providers/factory.py` selecting the active provider based on `settings.QUERY_UNDERSTANDING_PROVIDER`.
+### Providers
+- **`MockDataProvider`**: Deterministic provider for fast, reliable CI and unit test execution without external services.
+- **`LLMQueryProvider`**: Production provider using Ollama Qwen3:8B. Converts query + context into structured JSON containing `primary_intent`, `secondary_intents`, `entities`, `ambiguity`, and `confidence`.
 
 ---
 
-## 5. Routing Matrix
+## 5. Deterministic Routing Logic
 
-The deterministic router (`app/agent/router.py`) enforces strict priority rules:
+The routing engine (`app/agent/router.py`) enforces strict priority rules:
 
 ```text
-Priority: Human Handoff > Ambiguity / Clarification > Safe Stop > Multi-Intent > Structured Tools > RAG
+Priority Hierarchy:
+Human Handoff (C15) > Ambiguity / Clarification (C13) > Safe Stop (C14) > Multi-Intent (C11) > Structured Tools (C1-C6, C9) > RAG (C7, C8, C10, C16-C18)
 ```
 
-| Category | Primary Route | Selected Tool / Action | Rationale |
+| Category | Primary Route | Selected Tool / Target | Action Taken |
 |---|---|---|---|
-| **C1** (Course Discovery) | `STRUCTURED_TOOL` | `get_course_info` | Authoritative course catalog in PostgreSQL |
-| **C2** (Course Details) | `STRUCTURED_TOOL` | `get_course_info` | Relational table holds official course specs |
-| **C3** (Fees & Pricing) | `STRUCTURED_TOOL` | `get_fee` | Locked fee tables; prevents fee hallucination |
-| **C4** (Eligibility) | `STRUCTURED_TOOL` | `get_eligibility` | Min/max grade eligibility rules in DB |
-| **C5** (Branch Location) | `STRUCTURED_TOOL` | `get_branch_info` | Verified center addresses and phone numbers |
-| **C6** (Admission Process) | `STRUCTURED_TOOL` | `get_admission_steps` | Standardized institutional onboarding steps |
-| **C7** (Required Documents) | `RAG` | Hybrid Retrieval (`required-documents.md`) | Document lists and verification guidelines |
-| **C8** (Policies) | `RAG` | Hybrid Retrieval (`policies.md`) | Batch size, transfer, and refund clauses |
-| **C9** (Availability) | `STRUCTURED_TOOL` | `get_availability` / `get_admission_status` | Relational admission status & batch seat status |
-| **C10** (Comparison) | `RAG` | Hybrid Retrieval (`comparison.md`) | Pedagogical differentiation & methodology |
-| **C11** (Multi-Intent) | `MULTI_INTENT` | Decomposed Sub-routes | Parallel/sequential execution across intents |
-| **C12** (Follow-Up) | `CONTEXTUAL` / `CLARIFICATION` | Sub-intent resolution or Clarification | Resolves previous turn context |
-| **C13** (Ambiguous) | `CLARIFICATION` | No Tool Execution | Asks targeted question to resolve missing entities |
-| **C14** (Out-of-Scope) | `SAFE_STOP` | No Tool Execution | Escalates out-of-scope/competitor queries safely |
-| **C15** (Grievance) | `HUMAN_HANDOFF` | No Tool Execution | Direct handoff to counseling management |
-| **C16** (Hostel) | `RAG` | Hybrid Retrieval (`hostel-accommodation.md`) | Accommodation guidance & partner references |
-| **C17** (Outcomes) | `RAG` | Hybrid Retrieval (`placement-career-outcomes.md`) | Historical ranks and educational disclaimers |
-| **C18** (Language) | `RAG` | Hybrid Retrieval (`language-medium.md`) | Medium of instruction details |
+| **C1** (Course Discovery) | `STRUCTURED_TOOL` | `get_course_info` | Queries course catalog in PostgreSQL |
+| **C2** (Course Details) | `STRUCTURED_TOOL` | `get_course_info` | Retrieves official course specifications |
+| **C3** (Fees & Pricing) | `STRUCTURED_TOOL` | `get_fee` | Retrieves locked tuition/fee figures |
+| **C4** (Eligibility) | `STRUCTURED_TOOL` | `get_eligibility` | Evaluates grade and prerequisite rules |
+| **C5** (Branch Location) | `STRUCTURED_TOOL` | `get_branch_info` | Retrieves center addresses and contacts |
+| **C6** (Admission Process) | `STRUCTURED_TOOL` | `get_admission_steps` | Retrieves standard enrollment steps |
+| **C7** (Required Documents)| `RAG` | `required-documents.md` | Retrieves document checklists |
+| **C8** (Policies) | `RAG` | `policies.md` | Retrieves batch size and refund clauses |
+| **C9** (Availability) | `STRUCTURED_TOOL` | `get_availability` / `get_admission_status` | Checks seat status and enrollment state |
+| **C10** (Comparison) | `RAG` | `comparison.md` | Retrieves pedagogical differentiators |
+| **C11** (Multi-Intent) | `MULTI_INTENT` | Decomposed Sub-routes | Executes parallel/sequential sub-intents |
+| **C12** (Follow-Up) | `CONTEXTUAL` | Context Disambiguation | Resolves context or asks clarification |
+| **C13** (Ambiguous) | `CLARIFICATION` | No Tool Execution | Formulates clarification question |
+| **C14** (Out-of-Scope) | `SAFE_STOP` | No Tool Execution | Escalate safely to admissions team |
+| **C15** (Grievance) | `HUMAN_HANDOFF` | No Tool Execution | Escalates immediately to counseling |
+| **C16** (Hostel) | `RAG` | `hostel-accommodation.md` | Retrieves hostel/accommodation rules |
+| **C17** (Outcomes) | `RAG` | `placement-career-outcomes.md`| Retrieves historical ranks & disclaimers |
+| **C18** (Language) | `RAG` | `language-medium.md` | Retrieves language medium details |
 
 ---
 
-## 6. Structured Data Layer
+## 6. Structured Data Layer & Tools
 
-### PostgreSQL Relational Tables (Phase 2)
+### Relational Tables (PostgreSQL / Supabase)
 1. **`courses`**: Course ID, name, duration, target class, target exam, batch size, subjects, status.
 2. **`branches`**: Branch ID, name, address, city, phone, email, operating hours.
 3. **`fees`**: Program ID, registration fee, tuition fee, installment plans, refund policy notes.
@@ -263,8 +193,7 @@ Priority: Human Handoff > Ambiguity / Clarification > Safe Stop > Multi-Intent >
 5. **`availability`**: Program ID, batch name, total seats, filled seats, waitlist status.
 6. **`admission_status`**: Global admission status, academic year, active batch start dates.
 
-### Structured Tools (Phase 3)
-Located in `app/tools/structured/`:
+### 7 Read-Only Structured Tools (`app/tools/structured/`)
 - `get_course_info(course_id, name, target_class, exam)`
 - `get_fee(course_id, course_name)`
 - `get_branch_info(branch_id, name, city)`
@@ -274,15 +203,15 @@ Located in `app/tools/structured/`:
 - `get_availability(program_id, batch_name)`
 
 > [!IMPORTANT]
-> **Strict Architectural Rule**: Structured tools ONLY call `StructuredDataService`. They **never** execute raw SQL, never invoke LLM prompts, and never perform free-form natural language generation.
+> **Strict Architectural Rule**: Structured tools ONLY call `StructuredDataService`. They **never** execute raw SQL, never manage SQLAlchemy sessions directly, never invoke LLM prompts, and never perform free-form natural language generation.
 
 ---
 
-## 7. RAG Knowledge Layer
+## 7. RAG Knowledge Layer & Authority Rules
 
-### Document Inventory & Ingestion (Phase 4)
+### Ingestion & Chunking (`app/rag/`)
 - **18 Knowledge Documents** in `MockData/unstructured/` covering institutional policies, pedagogy, comparisons, language medium, and FAQs.
-- **Chunking Strategy**: Hierarchical Markdown header chunking (`H1` -> `H2` -> `H3`) that preserves tables and bulleted lists intact with deterministic IDs (`doc_name#chunk_index`).
+- **Hierarchical Markdown Chunking**: Chunks by Markdown headers (`H1` -> `H2` -> `H3`), preserving tables and bulleted lists intact with deterministic IDs (`doc_name#chunk_index`).
 - **Hybrid Retrieval**:
   - **Vector Semantic Search**: Cosine similarity against 384-dimensional embeddings (or pgvector in production).
   - **Keyword BM25 Search**: Exact keyword match over terms and course aliases.
@@ -290,51 +219,40 @@ Located in `app/tools/structured/`:
 
 ### Authority Hierarchy
 ```text
-PostgreSQL Relational Data (Tier 1 Authority) > Unstructured Markdown RAG (Tier 2 Authority)
+Tier 1: PostgreSQL Relational Database (Absolute Authority for numeric/policy/seat facts)
+  > Tier 2: Unstructured Markdown Knowledge Base (Descriptive/Pedagogical Context)
+    > Tier 3: LLM Parametric Knowledge (Zero Authority for institutional facts)
 ```
 When facts overlap (e.g. course duration or branch location), structured database results strictly supersede RAG text snippets.
 
 ---
 
-## 8. Safety & Fact Protection Guardrails
+## 8. Result Check & Evidence Verification
 
-To protect institutional integrity and prevent hallucinations, the service enforces non-negotiable safety guardrails:
-
-1. **Fee Hallucination Protection**: Fee numbers are only ever output if returned by `get_fee`. The validator blocks any response containing ungrounded currency amounts.
-2. **Live Seat Availability Protection**: Seat counts and batch availability are verified exclusively against `get_availability` or `get_admission_status`.
-3. **Clarification Gating**: Ambiguous queries (e.g., *"How much does it cost?"* without specifying grade/course) trigger clarification immediately without invoking database queries or LLM generation.
-4. **Human Escalation**: Complaints, grievances, or legal/competitor inquiries automatically transition to `status="escalated"` with a counseling handoff notice.
-5. **No Blind Hallucination Fallback**: If retrieved evidence is empty or below relevance threshold, answer generation is bypassed and the user is directed to the admissions desk.
+The `result_check_node` (`app/agent/nodes/result_check.py` and `app/agent/result_checker.py`) acts as a deterministic evidence gate:
+- Verifies that tool results are marked `success=True` and contain non-empty data payloads.
+- Verifies that RAG retrieval scores exceed the relevance threshold.
+- Detects factual contradictions between multiple retrieved documents.
+- If evidence is insufficient, skips LLM generation and routes cleanly to `status="escalated"` with guidance to contact admissions.
 
 ---
 
-## 9. Answer Generation
+## 9. Answer Generation with Qwen3:8B
 
-Answer generation (`app/agent/generator.py` and `app/agent/nodes/generation.py`) converts verified evidence into clear student-facing text:
-
-- **Evidence Gate**: Executes only after `result_check_node` verifies evidence is sufficient, non-empty, and free of contradictions.
-- **Evidence Serialization**: Structured tool results and RAG text snippets are formatted into a constrained JSON payload.
-- **Prompt Structure**: Instructs the LLM to write directly to the student, reference only provided evidence, and refrain from assuming unstated policies.
-- **Output Schema**: Produces a strict `DraftAnswerModel` JSON payload:
-  ```json
-  {
-    "draft_answer": "PERC offers classroom coaching...",
-    "used_structured": true,
-    "used_rag": false,
-    "evidence": [...],
-    "confidence": 0.95
-  }
-  ```
+Answer generation (`app/agent/generator.py` and `app/agent/nodes/generation.py`) synthesizes verified evidence into natural language:
+- **Evidence-Locked Prompts**: The prompt explicitly restricts the LLM to facts present in the provided `STRUCTURED_RESULTS` and `RAG_RESULTS` JSON blocks.
+- **Zero Extrapolation**: The model is forbidden from inventing fees, installment plans, dates, or contact details not present in the evidence.
+- **Output Contract**: Generates a strictly validated `DraftAnswerModel` JSON payload.
 
 ---
 
-## 10. Draft Validation
+## 10. Draft Validation & Safety Guardrails
 
-The Phase 5G validation node (`app/agent/result_validator.py` and `app/agent/nodes/result_validation.py`) runs deterministic post-generation checks before any text reaches the student:
-
-- **Groundedness Verification**: Confirms all numeric figures (fees, batch sizes, durations) appear in the source evidence.
-- **Safety Scan**: Detects unsupported competitor comparisons or unverified claims.
-- **Status Tagging**: Marks valid responses as `status="success"`, or triggers escalation if discrepancies are detected.
+The Phase 5G validation node (`app/agent/result_validator.py` and `app/agent/nodes/result_validation.py`) enforces safety before responses leave the engine:
+- **Fee Guardrail**: Scans the text for currency symbols and numeric amounts, verifying that each number matches retrieved structured fee records.
+- **Seat Availability Guardrail**: Prevents claiming seats are available unless verified via `get_availability`.
+- **Competitor/Comparison Guardrail**: Verifies comparisons adhere strictly to `comparison.md` without derogatory claims.
+- **Status Assignment**: Sets `status="success"` for valid answers, or flags anomalies for human counseling review.
 
 ---
 
@@ -348,7 +266,7 @@ The Phase 5G validation node (`app/agent/result_validator.py` and `app/agent/nod
 | `POST` | `/api/v1/response` | Primary response generation endpoint |
 | `POST` | `/response` | Direct root-mounted response endpoint |
 
-### Example Request (`ResponseRequest`)
+### Request Contract (`ResponseRequest`)
 ```json
 POST /api/v1/response
 Content-Type: application/json
@@ -360,27 +278,29 @@ Content-Type: application/json
 }
 ```
 
-### Example Response (`ResponseResponse`)
+### Standard Response Contract (`ResponseResponse`)
 ```json
 HTTP/200 OK
 Content-Type: application/json
 
 {
   "session_id": "sess-student-8921",
-  "answer": "Fee details for the IIT-JEE Advanced classroom coaching program are provided during your free counseling and demo session.",
+  "answer": "The fee structure for the Class 11 IIT-JEE Advanced program includes a registration fee and tuition fee as detailed in our official fee schedule.",
   "status": "success",
   "intent": "C3_FEES_PRICING",
   "sources": [
-    "structured_database",
-    "fees.json"
+    "structured_database"
   ],
   "clarification_required": false,
   "clarification_question": null
 }
 ```
 
-### Example Clarification Response
+### Clarification Response Contract
 ```json
+HTTP/200 OK
+Content-Type: application/json
+
 {
   "session_id": "sess-student-9902",
   "answer": "Could you please specify which course or program you are inquiring about?",
@@ -394,19 +314,19 @@ Content-Type: application/json
 
 ---
 
-## 12. Configuration
+## 12. Configuration & Environment Modes
 
-Application configuration is managed via Pydantic BaseSettings in `app/core/config.py` using `.env`:
+Managed via `app/core/config.py` using `.env`:
 
 ```ini
-# Environment
+# Database Connection (PostgreSQL / Supabase)
+DATABASE_URL=postgresql+psycopg://postgres:password@localhost:5432/perc_db
+
+# Application Environment ('development' or 'production')
 ENVIRONMENT=development
 
-# Database Connection (PostgreSQL / Supabase)
-DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/perc_response_db
-
-# Query Understanding Provider: 'mock' (default for deterministic tests) or 'llm' (production)
-QUERY_UNDERSTANDING_PROVIDER=mock
+# Query Understanding Provider: 'mock' (default for fast CI) or 'llm' (production)
+QUERY_UNDERSTANDING_PROVIDER=llm
 
 # LLM Provider Configuration
 LLM_PROVIDER=ollama
@@ -416,74 +336,137 @@ LLM_TEMPERATURE=0.0
 # Ollama Local Service Configuration
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen3:8b
-OLLAMA_TIMEOUT=120
+OLLAMA_TIMEOUT=180
 ```
+
+### Mode Differences
+- **`mock` Mode (`QUERY_UNDERSTANDING_PROVIDER=mock`)**: Uses `MockDataProvider` and deterministic fixtures for ultra-fast, offline unit and integration testing without requiring GPU/Ollama.
+- **`llm` Mode (`QUERY_UNDERSTANDING_PROVIDER=llm`)**: Uses `LLMQueryProvider` and `OllamaLLMClient` with `qwen3:8b` for live AI query classification and answer generation.
 
 ---
 
-## 13. Ollama + Qwen3 Setup
+## 13. Local Development & Operations
 
-To run local answer synthesis with Ollama and Qwen3:
-
-### 1. Install & Start Ollama
-- **Windows (PowerShell)**:
-  ```powershell
-  winget install Ollama.Ollama
-  # Or download from https://ollama.com/download/windows
-  ```
-- **Start Ollama Service**:
-  ```bash
-  ollama serve
-  ```
-
-### 2. Pull Qwen3 Model
+### 1. Install Dependencies
 ```bash
-ollama pull qwen3:8b
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux/macOS:
+source .venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
-### 3. Verify Local Connectivity
-Run the built-in diagnostic smoke test:
+### 2. Start Ollama & Pull Qwen3 Model
+```bash
+# Start Ollama service (in separate terminal)
+ollama serve
+
+# Pull Qwen3:8B model
+ollama pull qwen3:8b
+
+# Verify model presence
+ollama list
+```
+
+### 3. Run Diagnostic Smoke Test
 ```bash
 python -m scripts.test_ollama_connection
 ```
 
-> [!NOTE]
-> **Verification Status**: In CI and unit testing, dependency injection mocks the LLM client, allowing all tests to pass without an active Ollama instance. Live Ollama verification occurs dynamically when the service is running.
+### 4. Run Test Suite
+```bash
+# Run deterministic test suite (164 tests)
+pytest -q -m "not live"
+
+# Run live Qwen3 E2E verification
+pytest tests/agent/test_real_e2e.py -m live -k "live-C1-001 or live-C3-001" -v
+```
+
+### 5. Start FastAPI Development Server
+```bash
+uvicorn app.main:app --reload --port 8000
+```
 
 ---
 
-## 14. Project Structure
+## 14. Testing & Verification
+
+The test suite enforces rigorous separation between deterministic tests and live LLM tests:
+
+- **Deterministic Tests (`tests/conftest.py`)**: Automatically isolate `QUERY_UNDERSTANDING_PROVIDER` to `mock` so that all 164 unit and integration tests run fast and offline.
+- **Live Tests (`@pytest.mark.live`)**: Exercise the live pipeline end-to-end through FastAPI, LangGraph, and the running Ollama Qwen3 model.
+
+### Current Verification Status
+- **Deterministic Tests**: **164 passed**, 0 failures, 0 warnings
+- **Live Qwen3 Tests**: **C1 (Course Discovery) passed**, **C3 (Fees/Pricing) passed**
+- **Deprecation Warnings**: **0**
+
+---
+
+## 15. Production Architecture & Deployment Notes
+
+```text
++-----------------------+      HTTP REST      +-----------------------+
+|  FastAPI App Service  | ------------------> |  Ollama Qwen3:8B Daemon|
+|  (Stateless Container)|                     |  (GPU Compute Node)   |
++-----------+-----------+                     +-----------------------+
+            |
+            | SQLAlchemy / psycopg
+            v
++-----------------------+
+|  PostgreSQL Database  |
+|  (Supabase / pgvector)|
++-----------------------+
+```
+
+### Architectural Separation
+- **FastAPI Response Service**: Stateless container that handles API requests, orchestrates LangGraph state, and executes tools.
+- **PostgreSQL / Supabase**: Stores relational institutional data and pgvector embeddings.
+- **Ollama / Qwen3:8B**: Hosted on a dedicated GPU instance/service. **Ollama should NOT be embedded inside the FastAPI Docker container.** It communicates via standard HTTP API (`OLLAMA_BASE_URL`).
+
+---
+
+## 16. Security Guidelines
+
+1. **Environment Secrets**: Secrets and credentials must reside in `.env` or cloud secret managers. Never hardcode passwords, database URLs, or API keys in source files.
+2. **`.gitignore` Enforcement**: `.env` and local cache directories must never be committed to Git.
+3. **No Database Credentials in README**: Always use placeholder URLs in documentation.
+4. **Zero-Trust LLM Fact Authority**: The LLM is never trusted as an authoritative source of facts. All numeric figures and institutional claims must be anchored in structured database or verified RAG evidence.
+
+---
+
+## 17. Project Directory Layout
 
 ```text
 d:\response-service\
-├── alembic/                      # Database migrations
-│   └── versions/                 # Initial migration scripts for 6 relational tables
+├── alembic/                      # Database migrations (PostgreSQL)
+│   └── versions/                 # Migration scripts for 6 relational tables
 ├── app/
 │   ├── agent/                    # LangGraph multi-node engine
 │   │   ├── nodes/                # 8 discrete pipeline node implementations
-│   │   │   ├── initialize.py     # State initialization
-│   │   │   ├── understand.py     # Intent & entity classification
-│   │   │   ├── ambiguity.py      # Clarification detection
-│   │   │   ├── routing.py        # Deterministic routing
-│   │   │   ├── execution.py      # Tools/RAG executor
-│   │   │   ├── result_check.py   # Evidence evaluation
+│   │   │   ├── initialize.py     # State initialization node
+│   │   │   ├── understand.py     # Intent & entity classification node
+│   │   │   ├── ambiguity.py      # Ambiguity detection node
+│   │   │   ├── routing.py        # Deterministic routing node
+│   │   │   ├── execution.py      # Tools & RAG execution node
+│   │   │   ├── result_check.py   # Evidence verification node
 │   │   │   ├── generation.py     # Answer generation node
-│   │   │   └── result_validation.py # Fact validation node
-│   │   ├── prompts/              # System prompts for Qwen3
-│   │   ├── providers/            # Mock & LLM understanding providers, Ollama client
-│   │   ├── executor.py           # Tool execution engine
-│   │   ├── generator.py          # Answer generator
+│   │   │   └── result_validation.py # Draft fact validation node
+│   │   ├── prompts/              # System prompts for Qwen3 (understanding & generation)
+│   │   ├── providers/            # Mock & LLM providers, Ollama client
+│   │   ├── executor.py           # ExecutionEngine for tools and retrieval
+│   │   ├── generator.py          # AnswerGenerator
 │   │   ├── graph.py              # Compiled LangGraph definition
-│   │   ├── result_checker.py     # Result sufficiency checker
-│   │   ├── result_validator.py   # Draft fact validator
+│   │   ├── result_checker.py     # Evidence sufficiency checker
+│   │   ├── result_validator.py   # Deterministic draft validator
 │   │   └── router.py             # C1–C18 routing logic
 │   ├── api/                      # FastAPI layer
 │   │   ├── deps.py               # Dependency injection (get_response_graph)
-│   │   └── v1/
-│   │       ├── endpoints/        # POST /response endpoint
-│   │       └── router.py         # v1 router assembly
+│   │   └── v1/                   # API v1 routes & endpoints
 │   ├── core/
-│   │   └── config.py             # Pydantic environment settings
+│   │   └── config.py             # Pydantic BaseSettings
 │   ├── db/
 │   │   ├── models/               # SQLAlchemy models (courses, fees, branches, etc.)
 │   │   ├── base.py               # DeclarativeBase
@@ -492,31 +475,25 @@ d:\response-service\
 │   │   ├── chunker.py            # Hierarchical markdown chunking
 │   │   ├── loader.py             # Document loader
 │   │   ├── metadata.py           # Document metadata extractor
-│   │   ├── retriever.py          # Vector/keyword retriever
+│   │   ├── retriever.py          # Vector/keyword hybrid retriever
 │   │   └── vector_store.py       # Embedding indexer
-│   ├── repositories/             # Relational DB repositories
+│   ├── repositories/             # Relational database repositories
 │   ├── schemas/                  # Pydantic schemas (Request, Response, AgentState)
 │   ├── services/                 # StructuredDataService
-│   ├── tools/                    # Read-only structured tools
+│   ├── tools/                    # 7 read-only structured tools
 │   └── main.py                   # FastAPI application entrypoint
-├── docs/                         # Architecture documentation for Phases 1 to 5
+├── docs/                         # Architecture documentation
 ├── MockData/                     # Authoritative institutional mock data
 │   ├── structured/               # JSON datasets (courses, fees, branches, etc.)
 │   └── unstructured/             # 18 Markdown knowledge base documents
-├── scripts/                      # Utility scripts
+├── scripts/                      # Operational & verification scripts
 │   ├── check_table_counts.py     # Verify DB row counts
 │   ├── ingest_knowledge.py       # RAG knowledge base ingestion
 │   ├── seed_structured_data.py   # Seed PostgreSQL tables from MockData
-│   └── test_ollama_connection.py # Smoke test for local Ollama daemon
-├── tests/                        # Pytest verification suite
-│   ├── agent/                    # LangGraph nodes, routing, understanding & E2E tests
-│   ├── rag/                      # RAG chunker, loader, and retriever tests
-│   ├── tools/                    # Structured tool tests
-│   ├── test_api_integration.py   # FastAPI endpoint tests
-│   ├── test_config.py            # Configuration tests
-│   ├── test_mock_data_parsing.py # Mock data validation
-│   ├── test_repositories_and_seeding.py # DB repo tests
-│   └── test_schemas.py           # Contract schema tests
+│   └── test_ollama_connection.py # Diagnostic smoke test for Ollama
+├── tests/                        # Automated test suite (164 deterministic + live tests)
+│   ├── conftest.py               # Global pytest fixtures & provider isolation
+│   └── agent/test_real_e2e.py    # Real end-to-end verification tests
 ├── alembic.ini                   # Alembic configuration
 ├── pytest.ini                    # Pytest configuration & markers
 └── requirements.txt              # Project dependencies
@@ -524,164 +501,23 @@ d:\response-service\
 
 ---
 
-## 15. Testing & Verification
+## 18. Development Status & Roadmap
 
-The repository includes a comprehensive automated test suite with **100% deterministic coverage**:
+### Implemented & Verified
+- [x] **Phase 1**: Request/Response and State Contracts (`ResponseRequest`, `ResponseResponse`, `AgentState`).
+- [x] **Phase 2**: Relational PostgreSQL data model (6 tables) and Alembic migrations.
+- [x] **Phase 3**: 7 read-only typed structured tools invoking `StructuredDataService`.
+- [x] **Phase 4**: Hybrid RAG pipeline (vector search + BM25 keyword + Reciprocal Rank Fusion).
+- [x] **Phase 5A–5G**: 8-node LangGraph pipeline (understanding, ambiguity, routing, execution, result check, generation, validation).
+- [x] **Phase 5H**: FastAPI integration (`POST /api/v1/response`) and live Ollama Qwen3:8B verification (C1 and C3).
+- [x] **164 Deterministic Tests Passing** with 0 failures and 0 warnings.
 
-```bash
-pytest -q
-```
-
-### Test Suite Summary
-- **164 Passed Tests**
-- **1 Skipped Test** (Live Ollama smoke test skipped when daemon is offline)
-- **0 Failures**
-- **0 Deprecation Warnings**
-- **Coverage Areas**:
-  - Phase 1 API schemas & contracts
-  - Phase 2 PostgreSQL models & database seeding
-  - Phase 3 Structured read-only tools
-  - Phase 4 Hybrid RAG chunking, indexing & RRF retrieval
-  - Phase 5 LangGraph nodes (understand, ambiguity, routing, execution, result_check, generation, validation)
-  - Phase 5H Real E2E verification across all 18 PERC intent categories
-  - FastAPI API integration & exception handling
+### Next Stage (Production Deployment)
+- [ ] Docker containerization for the stateless FastAPI service.
+- [ ] Production PostgreSQL & pgvector deployment.
+- [ ] Dedicated GPU deployment for Ollama Qwen3:8B inference.
+- [ ] CI/CD pipeline integration.
 
 ---
 
-## 16. Running Locally
-
-### 1. Virtual Environment & Dependencies
-```bash
-python -m venv .venv
-# Activate on Windows:
-.venv\Scripts\activate
-# Activate on Linux/macOS:
-source .venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-### 2. Configure Environment
-```bash
-copy .env.example .env
-```
-
-### 3. Run Database Migrations & Seed Data
-```bash
-# Run Alembic migrations
-alembic upgrade head
-
-# Seed PostgreSQL with structured institutional data
-python -m scripts.seed_structured_data
-```
-
-### 4. Ingest RAG Knowledge Base
-```bash
-python -m scripts.ingest_knowledge
-```
-
-### 5. Run Test Suite
-```bash
-# Run full automated test suite
-pytest -q
-
-# Run API integration tests
-pytest tests/test_api_integration.py -v
-
-# Run Real E2E verification tests
-pytest tests/agent/test_real_e2e.py -v
-```
-
-### 6. Start FastAPI Development Server
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-### 7. Test Health & Response Endpoints
-```bash
-# Health probe
-curl http://localhost:8000/health
-
-# Submit query
-curl -X POST http://localhost:8000/api/v1/response \
-  -H "Content-Type: application/json" \
-  -d '{"session_id": "test-123", "message": "What courses do you offer?"}'
-```
-
----
-
-## 17. Development Phases Timeline
-
-| Phase | Milestone | Implemented Capabilities |
-|---|---|---|
-| **Phase 1** | Response Contracts | Defined `ResponseRequest`, `ResponseResponse`, and `AgentState` schemas. |
-| **Phase 2** | Structured Data Model | Designed SQLAlchemy models & Alembic migrations for 6 relational tables. |
-| **Phase 3** | Structured Tools | Built 7 read-only structured tools calling `StructuredDataService`. |
-| **Phase 4A** | RAG Analysis | Cataloged 18 unstructured documents and established authority rules. |
-| **Phase 4B** | RAG Ingestion & Vector Storage | Implemented hierarchical chunking and vector storage. |
-| **Phase 4C** | Search & Hybrid Retrieval | Built BM25, vector search, and Reciprocal Rank Fusion (RRF). |
-| **Phase 5A** | LangGraph Agent Foundation | Built compiled `StateGraph` orchestrating the 8 pipeline nodes. |
-| **Phase 5B** | Query Understanding | Integrated C1–C18 intent classification and entity extraction. |
-| **Phase 5C** | Deterministic Routing | Built routing matrix across structured tools, RAG, and human handoff. |
-| **Phase 5D** | Tool & RAG Execution | Built `ExecutionEngine` managing parallel tool/retrieval execution. |
-| **Phase 5E** | Result Checking | Implemented deterministic evidence gatekeeper and conflict detector. |
-| **Phase 5F** | Answer Generation | Built `AnswerGenerator` with locked prompt evidence schemas. |
-| **Phase 5G** | Draft Validation | Built deterministic fact validator preventing ungrounded claims. |
-| **Phase 5H** | Real E2E & API Integration | Wired FastAPI to LangGraph and verified all 18 canonical PERC categories. |
-
----
-
-## 18. Current Status
-
-### Implemented
-- [x] Full FastAPI application entrypoint with `/health`, `/response`, and `/api/v1/response`.
-- [x] Complete 8-node compiled LangGraph agent pipeline.
-- [x] 6 PostgreSQL relational database models & Alembic migration scripts.
-- [x] 7 deterministic read-only structured database tools.
-- [x] Hybrid RAG pipeline (vector search + BM25 keyword + Reciprocal Rank Fusion).
-- [x] C1–C18 intent classification, entity extraction, and ambiguity detection.
-- [x] Deterministic routing matrix with priority-based decision logic.
-- [x] Result checking and evidence sufficiency gatekeeper.
-- [x] Answer generator with locked evidence prompt templates.
-- [x] Post-generation deterministic draft validator for fact safety.
-- [x] Dependency injection architecture decoupling tests from external services.
-- [x] 164 automated tests passing with 0 failures and 0 warnings.
-
-### Pending / In-Progress
-- [ ] Active local/hosted Ollama daemon startup (`ollama serve` + `ollama pull qwen3:8b`) for live local LLM answer generation in development.
-- [ ] Cloud deployment infrastructure (e.g. Google Cloud Run / Docker containerization with production PostgreSQL).
-
----
-
-## 19. Production Readiness & Remaining Work
-
-1. **Local Ollama Daemon**: Start Ollama locally with `ollama serve` and pull `qwen3:8b` to enable live LLM synthesis during manual local testing.
-2. **Production Database & Vector Storage**: Deploy to hosted PostgreSQL (e.g., Supabase / Cloud SQL) and run `alembic upgrade head` followed by `scripts.seed_structured_data`.
-3. **Containerization**: Package the FastAPI service into a production Docker image using standard multi-stage builds.
-
----
-
-## 20. Quick Start
-
-```bash
-# 1. Clone & setup
-git clone https://github.com/Involynk/PERC-Automation.git
-cd PERC-Automation
-
-# 2. Virtual environment
-python -m venv .venv
-.venv\Scripts\activate
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Run tests
-pytest -q
-
-# 5. Start development API server
-uvicorn app.main:app --reload
-```
-
----
-
-*Authored for the PERC Response Service Architecture & Engineering Team.*
+*Authored for the PERC Response Service Engineering Team.*

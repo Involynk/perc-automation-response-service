@@ -1,9 +1,8 @@
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 class Settings(BaseSettings):
-    DATABASE_URL: str
+    DATABASE_URL: str = "postgresql+psycopg://postgres:postgres_password@localhost:5432/perc_db"
     ENVIRONMENT: str = "development"
     # Query understanding provider selection: 'mock' for deterministic tests, 'llm' for production
     QUERY_UNDERSTANDING_PROVIDER: str = "mock"

@@ -1,0 +1,33 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Git and Version Control
+.git
+.gitignore
+.github
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+
+# Python byte code and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE and Editor configs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary scripts and logs
+scripts/debug_*
+*.log
