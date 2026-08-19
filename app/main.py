@@ -1,10 +1,25 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.v1.router import api_router
+from app.services.event_consumer import KafkaEventConsumerService
+
+consumer_service = KafkaEventConsumerService()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start Kafka consumer worker if configured
+    await consumer_service.start()
+    yield
+    # Shutdown: Stop Kafka consumer worker cleanly
+    await consumer_service.stop()
+
 
 app = FastAPI(
     title="PERC Response Service",
     description="Intelligent AI response service for PERC educational institute queries",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 

@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # Kafka Event Bus Configuration
     KAFKA_BOOTSTRAP_SERVERS: str | None = None
     KAFKA_CLIENT_ID: str = "response-service-producer"
+    KAFKA_CONSUMER_GROUP_ID: str = "response-service-group"
     KAFKA_ENABLED: bool = False
 
     model_config = SettingsConfigDict(
