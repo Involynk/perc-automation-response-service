@@ -12,8 +12,9 @@
 .venv/
 venv/
 ENV/
+env/
 
-# Python byte code and caches
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
 *$py.class
@@ -28,6 +29,10 @@ htmlcov/
 *.swp
 *.swo
 
-# Temporary scripts and logs
-scripts/debug_*
+# Test files and test logs (tests are verified in CI prior to build)
+tests/
 *.log
+
+# Docker artifacts
+Dockerfile*
+docker-compose*.yml
