@@ -4,17 +4,23 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
+# Optimized for hosted Supabase PostgreSQL (direct or pooled connections)
+# pool_pre_ping: tests liveness before issuing query
+# pool_recycle: recycles idle connections before cloud NAT/Supabase drop them (30 mins)
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,
-    echo=False
+    pool_recycle=1800,
+    pool_size=10,
+    max_overflow=20,
+    echo=False,
 )
 
 SessionLocal = sessionmaker(
     bind=engine,
     autocommit=False,
     autoflush=False,
-    expire_on_commit=False
+    expire_on_commit=False,
 )
 
 
