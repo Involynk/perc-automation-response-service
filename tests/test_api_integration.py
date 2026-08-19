@@ -248,3 +248,48 @@ def test_insufficient_evidence_fallback(client):
     finally:
         app.dependency_overrides.clear()
 
+
+def test_internal_service_authentication(client):
+    """Test 11: Internal microservice authentication enforcement."""
+    from unittest.mock import patch
+    from app.core.config import settings
+
+    test_api_key = "test_internal_secret_key_999"
+    fake_result = {
+        "session_id": "auth-session-1",
+        "query": "Hello",
+        "draft_answer": "Welcome to PERC.",
+    }
+    app.dependency_overrides[get_response_graph] = lambda: FakeGraph(fake_result)
+
+    try:
+        with patch.object(settings, "INTERNAL_SERVICE_API_KEY", test_api_key):
+            # 1. Valid internal key -> 200 OK
+            resp_valid = client.post(
+                "/api/v1/response",
+                json={"session_id": "auth-session-1", "message": "Hello"},
+                headers={"X-Internal-API-Key": test_api_key},
+            )
+            assert resp_valid.status_code == 200
+            assert resp_valid.json()["answer"] == "Welcome to PERC."
+
+            # 2. Missing internal key -> 401 Unauthorized
+            resp_missing = client.post(
+                "/api/v1/response",
+                json={"session_id": "auth-session-1", "message": "Hello"},
+            )
+            assert resp_missing.status_code == 401
+            assert "Missing X-Internal-API-Key" in resp_missing.json()["detail"]
+
+            # 3. Invalid internal key -> 403 Forbidden
+            resp_invalid = client.post(
+                "/api/v1/response",
+                json={"session_id": "auth-session-1", "message": "Hello"},
+                headers={"X-Internal-API-Key": "wrong_key"},
+            )
+            assert resp_invalid.status_code == 403
+            assert "Invalid X-Internal-API-Key" in resp_invalid.json()["detail"]
+    finally:
+        app.dependency_overrides.clear()
+
+

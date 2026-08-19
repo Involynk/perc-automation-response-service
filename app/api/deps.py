@@ -28,6 +28,35 @@ def get_whatsapp_repo(
     return WhatsAppMessageRepository(db)
 
 
+def verify_internal_api_key(
+    x_internal_api_key: Optional[str] = Header(None, alias="X-Internal-API-Key"),
+) -> None:
+    """
+    Verify internal microservice authentication header.
+    When INTERNAL_SERVICE_API_KEY is configured in settings:
+    - Missing header raises 401 Unauthorized.
+    - Invalid key raises 403 Forbidden.
+    """
+    expected_key = settings.INTERNAL_SERVICE_API_KEY
+    if not expected_key:
+        # In development/test environments where no internal key is configured, allow request
+        return
+
+    if not x_internal_api_key:
+        logger.warning("Rejecting internal service request: Missing X-Internal-API-Key header.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Internal-API-Key header",
+        )
+
+    if not hmac.compare_digest(expected_key, x_internal_api_key):
+        logger.warning("Rejecting internal service request: Invalid X-Internal-API-Key.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid X-Internal-API-Key",
+        )
+
+
 async def verify_meta_signature(
     request: Request,
     x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),

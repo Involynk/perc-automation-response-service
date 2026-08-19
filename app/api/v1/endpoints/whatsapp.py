@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from pydantic import BaseModel, Field, ValidationError
 import httpx
 
-from app.api.deps import get_response_graph, get_whatsapp_repo, verify_meta_signature
+from app.api.deps import get_response_graph, get_whatsapp_repo, verify_internal_api_key, verify_meta_signature
 from app.api.v1.endpoints.response import generate_response
 from app.core.config import settings
 from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
@@ -30,8 +30,16 @@ class WhatsAppTemplateRequest(BaseModel):
     language_code: str = Field(default="en_US", description="Template language code")
 
 
-@router.post("/responses/send-whatsapp", tags=["whatsapp"])
-@router.post("/send-whatsapp", tags=["whatsapp"])
+@router.post(
+    "/responses/send-whatsapp",
+    tags=["whatsapp"],
+    dependencies=[Depends(verify_internal_api_key)],
+)
+@router.post(
+    "/send-whatsapp",
+    tags=["whatsapp"],
+    dependencies=[Depends(verify_internal_api_key)],
+)
 async def send_response_whatsapp(request: WhatsAppRequest) -> Dict[str, Any]:
     """Send a direct WhatsApp message using the Meta WhatsApp Cloud API."""
     try:
@@ -58,8 +66,16 @@ async def send_response_whatsapp(request: WhatsAppRequest) -> Dict[str, Any]:
         )
 
 
-@router.post("/responses/send-whatsapp-template", tags=["whatsapp"])
-@router.post("/send-whatsapp-template", tags=["whatsapp"])
+@router.post(
+    "/responses/send-whatsapp-template",
+    tags=["whatsapp"],
+    dependencies=[Depends(verify_internal_api_key)],
+)
+@router.post(
+    "/send-whatsapp-template",
+    tags=["whatsapp"],
+    dependencies=[Depends(verify_internal_api_key)],
+)
 async def send_response_whatsapp_template(request: WhatsAppTemplateRequest) -> Dict[str, Any]:
     """Send a WhatsApp pre-approved template message."""
     try:

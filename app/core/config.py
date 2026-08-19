@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     GRAPH_API_VERSION: str = "v26.0"
     WEBHOOK_VERIFY_TOKEN: str = "perc_webhook_secret_token"
 
+    # Internal Microservices Authentication
+    INTERNAL_SERVICE_API_KEY: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

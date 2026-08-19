@@ -117,6 +117,42 @@ def test_whatsapp_endpoints():
         assert data["meta_response"]["messages"][0]["id"] == "wamid.test_endpoint"
 
 
+def test_whatsapp_endpoints_internal_auth():
+    """Verify X-Internal-API-Key enforcement on outbound WhatsApp endpoints."""
+    test_key = "secret_internal_key_123"
+    mock_meta_resp = {"messaging_product": "whatsapp", "messages": [{"id": "wamid.auth_test"}]}
+
+    with patch.object(settings, "INTERNAL_SERVICE_API_KEY", test_key):
+        with patch("app.api.v1.endpoints.whatsapp.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
+            mock_send.return_value = mock_meta_resp
+
+            # 1. Valid key -> 200 OK
+            resp_valid = client.post(
+                "/responses/send-whatsapp",
+                json={"phone": "919380019642", "message": "Authenticated message"},
+                headers={"X-Internal-API-Key": test_key},
+            )
+            assert resp_valid.status_code == 200
+            assert resp_valid.json()["success"] is True
+
+            # 2. Missing key -> 401 Unauthorized
+            resp_missing = client.post(
+                "/responses/send-whatsapp",
+                json={"phone": "919380019642", "message": "Unauthenticated message"},
+            )
+            assert resp_missing.status_code == 401
+            assert "Missing X-Internal-API-Key" in resp_missing.json()["detail"]
+
+            # 3. Invalid key -> 403 Forbidden
+            resp_invalid = client.post(
+                "/responses/send-whatsapp",
+                json={"phone": "919380019642", "message": "Invalid key message"},
+                headers={"X-Internal-API-Key": "wrong_key"},
+            )
+            assert resp_invalid.status_code == 403
+            assert "Invalid X-Internal-API-Key" in resp_invalid.json()["detail"]
+
+
 def test_webhook_verification():
     # Test valid challenge
     resp = client.get(

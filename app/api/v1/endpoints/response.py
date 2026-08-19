@@ -4,7 +4,7 @@ from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_response_graph
+from app.api.deps import get_response_graph, verify_internal_api_key
 from app.schemas.agent import QueryIntent
 from app.schemas.request import ResponseRequest
 from app.schemas.response import ResponseResponse
@@ -33,7 +33,11 @@ def _parse_answer_text(draft: Any) -> str:
     return str(draft)
 
 
-@router.post("/response", response_model=ResponseResponse)
+@router.post(
+    "/response",
+    response_model=ResponseResponse,
+    dependencies=[Depends(verify_internal_api_key)],
+)
 def generate_response(
     request: ResponseRequest,
     graph: Any = Depends(get_response_graph),
