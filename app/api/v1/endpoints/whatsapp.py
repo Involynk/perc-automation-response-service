@@ -1,14 +1,17 @@
+import json
 import logging
 import os
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 import httpx
 
-from app.api.deps import get_response_graph
+from app.api.deps import get_response_graph, get_whatsapp_repo, verify_meta_signature
 from app.api.v1.endpoints.response import generate_response
 from app.core.config import settings
+from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
 from app.schemas.request import ResponseRequest
+from app.schemas.whatsapp_webhook import MetaWebhookPayload
 from app.services.whatsapp_service import send_whatsapp_message, send_whatsapp_template
 
 logger = logging.getLogger(__name__)
@@ -42,7 +45,7 @@ async def send_response_whatsapp(request: WhatsAppRequest) -> Dict[str, Any]:
             "meta_response": result,
         }
     except httpx.HTTPStatusError as exc:
-        logger.error(f"Meta Graph API error: {exc.response.text}")
+        logger.error(f"Meta Graph API error ({exc.response.status_code}): {exc.response.text}")
         raise HTTPException(
             status_code=exc.response.status_code,
             detail=f"Meta API Error: {exc.response.text}",
@@ -71,7 +74,7 @@ async def send_response_whatsapp_template(request: WhatsAppTemplateRequest) -> D
             "meta_response": result,
         }
     except httpx.HTTPStatusError as exc:
-        logger.error(f"Meta Graph Template API error: {exc.response.text}")
+        logger.error(f"Meta Graph Template API error ({exc.response.status_code}): {exc.response.text}")
         raise HTTPException(
             status_code=exc.response.status_code,
             detail=f"Meta API Error: {exc.response.text}",
@@ -91,9 +94,9 @@ async def verify_webhook(
     hub_challenge: Optional[str] = Query(None, alias="hub.challenge"),
 ):
     """Meta Webhook verification challenge endpoint."""
-    expected_token = os.getenv("WEBHOOK_VERIFY_TOKEN", "perc_webhook_secret_token")
+    expected_token = settings.WEBHOOK_VERIFY_TOKEN or os.getenv("WEBHOOK_VERIFY_TOKEN", "perc_webhook_secret_token")
     if hub_mode == "subscribe" and hub_verify_token == expected_token:
-        logger.info(f"✅ Meta Webhook verification challenge successful (token={hub_verify_token}).")
+        logger.info("✅ Meta Webhook verification challenge successful.")
         return Response(content=hub_challenge, media_type="text/plain")
     logger.warning("❌ Webhook verification failed: Invalid verify token or mode.")
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Verification token mismatch")
@@ -101,90 +104,151 @@ async def verify_webhook(
 
 @router.post("/webhook", tags=["webhook"])
 async def receive_webhook(
-    request: Request,
+    raw_body: bytes = Depends(verify_meta_signature),
     graph: Any = Depends(get_response_graph),
+    repo: WhatsAppMessageRepository = Depends(get_whatsapp_repo),
 ) -> Dict[str, Any]:
-    """Receive incoming WhatsApp messages, process enquiries through LangGraph response pipeline, and reply via WhatsApp Cloud API."""
+    """
+    Receive incoming Meta WhatsApp webhook events.
+    Enforces HMAC-SHA256 signature verification, typed payload validation,
+    durable PostgreSQL message idempotency, and safe handling of all message types.
+    """
+    # 1. Parse and validate webhook payload using typed Pydantic models
     try:
-        body = await request.json()
-        logger.info(f"📥 Incoming Meta Webhook Event: {body}")
-
-        processed_messages: List[Dict[str, Any]] = []
-
-        entries = body.get("entry", [])
-        for entry in entries:
-            for change in entry.get("changes", []):
-                value = change.get("value", {})
-
-                # 1. Process Incoming Customer Messages
-                messages = value.get("messages", [])
-                for msg in messages:
-                    sender = msg.get("from")
-                    msg_type = msg.get("type")
-                    msg_id = msg.get("id")
-                    text_body = msg.get("text", {}).get("body") if msg_type == "text" else None
-
-                    logger.info(
-                        f"📩 [NEW WHATSAPP ENQUIRY] From: {sender} | Type: {msg_type} | Body: \"{text_body}\" | ID: {msg_id}"
-                    )
-
-                    if sender and text_body:
-                        # Construct standard ResponseRequest
-                        response_req = ResponseRequest(
-                            session_id=f"whatsapp_{sender}",
-                            message=text_body,
-                            metadata={
-                                "channel": "whatsapp",
-                                "sender_phone": sender,
-                                "whatsapp_message_id": msg_id,
-                            },
-                        )
-
-                        # Execute Response Service LangGraph pipeline
-                        logger.info(f"⚙️ Running Response Service pipeline for enquiry: \"{text_body}\"")
-                        response_res = generate_response(request=response_req, graph=graph)
-                        generated_answer = response_res.answer
-
-                        logger.info(
-                            f"🤖 Generated Answer for {sender} (intent={response_res.intent}, status={response_res.status}): \"{generated_answer}\""
-                        )
-
-                        # Send generated answer back to the user via WhatsApp Cloud API
-                        outgoing_meta_res = None
-                        try:
-                            outgoing_meta_res = await send_whatsapp_message(
-                                recipient_phone=sender,
-                                message=generated_answer,
-                            )
-                            logger.info(f"🚀 Outbound WhatsApp Response Delivered to {sender}: {outgoing_meta_res}")
-                        except Exception as send_err:
-                            logger.error(f"⚠️ Failed to send outbound WhatsApp reply to {sender}: {send_err}", exc_info=True)
-
-                        processed_messages.append({
-                            "sender": sender,
-                            "enquiry": text_body,
-                            "intent": response_res.intent.value if response_res.intent else None,
-                            "response_status": response_res.status,
-                            "generated_answer": generated_answer,
-                            "outbound_whatsapp_response": outgoing_meta_res,
-                        })
-
-                # 2. Process Outbound Message Delivery Status Updates
-                statuses = value.get("statuses", [])
-                for st in statuses:
-                    wamid = st.get("id")
-                    status_name = st.get("status")
-                    recipient = st.get("recipient_id")
-                    errors = st.get("errors")
-                    logger.info(
-                        f"📊 [DELIVERY STATUS UPDATE] id={wamid} status={status_name} to={recipient} errors={errors}"
-                    )
-
-        return {
-            "status": "received",
-            "processed_count": len(processed_messages),
-            "processed_messages": processed_messages,
-        }
+        payload = MetaWebhookPayload.model_validate_json(raw_body)
+    except ValidationError as err:
+        logger.error(f"❌ Malformed WhatsApp Webhook payload: {err}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid webhook payload structure: {err.errors()}",
+        )
     except Exception as exc:
-        logger.error(f"Error handling webhook payload: {exc}", exc_info=True)
-        return {"status": "error", "detail": str(exc)}
+        logger.error(f"❌ Failed to parse webhook JSON body: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Malformed JSON body",
+        )
+
+    processed_messages: List[Dict[str, Any]] = []
+
+    for entry in payload.entry:
+        for change in entry.changes:
+            value = change.value
+
+            # 2. Process incoming customer messages
+            if value.messages:
+                for msg in value.messages:
+                    sender = msg.from_
+                    msg_type = msg.type
+                    msg_id = msg.id
+
+                    # 3. Idempotency Check: Prevent duplicate processing of the same Meta wamid
+                    if repo.is_already_processed(msg_id):
+                        logger.info(f"🔁 Duplicate WhatsApp message detected: {msg_id}. Skipping processing.")
+                        processed_messages.append({
+                            "wamid": msg_id,
+                            "sender": sender,
+                            "status": "duplicate_skipped",
+                        })
+                        continue
+
+                    # 4. Handle Unsupported message types gracefully
+                    if msg_type != "text" or not msg.text:
+                        logger.warning(
+                            f"⚠️ Unsupported WhatsApp message type '{msg_type}' from {sender} (wamid={msg_id})."
+                        )
+                        repo.record_processed_message(
+                            wamid=msg_id,
+                            sender_phone=sender,
+                            message_type=msg_type,
+                            message_body=None,
+                            status="UNSUPPORTED",
+                        )
+                        processed_messages.append({
+                            "wamid": msg_id,
+                            "sender": sender,
+                            "status": "unsupported_type",
+                            "message_type": msg_type,
+                        })
+                        continue
+
+                    # 5. Process Text Enquiry through LangGraph response pipeline
+                    text_body = msg.text.body
+                    logger.info(
+                        f"📩 [NEW WHATSAPP ENQUIRY] From: {sender} | Body: \"{text_body}\" | ID: {msg_id}"
+                    )
+
+                    response_req = ResponseRequest(
+                        session_id=f"whatsapp_{sender}",
+                        message=text_body,
+                        metadata={
+                            "channel": "whatsapp",
+                            "sender_phone": sender,
+                            "whatsapp_message_id": msg_id,
+                        },
+                    )
+
+                    response_res = generate_response(request=response_req, graph=graph)
+                    generated_answer = response_res.answer
+                    intent_str = response_res.intent.value if response_res.intent else None
+
+                    logger.info(
+                        f"🤖 Generated Answer for {sender} (intent={intent_str}, status={response_res.status}): \"{generated_answer}\""
+                    )
+
+                    # 6. Deliver generated reply to user via WhatsApp Cloud API
+                    outgoing_meta_res = None
+                    outbound_wamid = None
+                    send_error = None
+                    try:
+                        outgoing_meta_res = await send_whatsapp_message(
+                            recipient_phone=sender,
+                            message=generated_answer,
+                        )
+                        if outgoing_meta_res and "messages" in outgoing_meta_res and len(outgoing_meta_res["messages"]) > 0:
+                            outbound_wamid = outgoing_meta_res["messages"][0].get("id")
+                        logger.info(f"🚀 Outbound WhatsApp Response Delivered to {sender}: {outgoing_meta_res}")
+                    except Exception as err:
+                        send_error = str(err)
+                        logger.error(f"⚠️ Failed to send outbound WhatsApp reply to {sender}: {err}", exc_info=True)
+
+                    # 7. Record durable idempotency state in PostgreSQL
+                    repo.record_processed_message(
+                        wamid=msg_id,
+                        sender_phone=sender,
+                        message_type="text",
+                        message_body=text_body,
+                        status="PROCESSED" if not send_error else "FAILED",
+                        response_intent=intent_str,
+                        outbound_wamid=outbound_wamid,
+                        error_message=send_error,
+                    )
+
+                    processed_messages.append({
+                        "wamid": msg_id,
+                        "sender": sender,
+                        "status": "processed",
+                        "enquiry": text_body,
+                        "intent": intent_str,
+                        "response_status": response_res.status,
+                        "generated_answer": generated_answer,
+                        "outbound_wamid": outbound_wamid,
+                        "outbound_whatsapp_response": outgoing_meta_res,
+                    })
+
+            # 8. Process Outbound Message Delivery Status Updates
+            if value.statuses:
+                for st in value.statuses:
+                    wamid = st.id
+                    status_name = st.status
+                    recipient = st.recipient_id
+                    error_details = [e.model_dump() for e in st.errors] if st.errors else None
+                    logger.info(
+                        f"📊 [DELIVERY STATUS UPDATE] id={wamid} status={status_name} to={recipient} errors={error_details}"
+                    )
+
+    return {
+        "status": "received",
+        "processed_count": len(processed_messages),
+        "processed_messages": processed_messages,
+    }

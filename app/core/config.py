@@ -18,9 +18,11 @@ class Settings(BaseSettings):
 
     # Meta WhatsApp Cloud API configuration
     META_ACCESS_TOKEN: str | None = None
+    META_APP_SECRET: str | None = None
     WABA_ID: str | None = None
     PHONE_NUMBER_ID: str | None = None
     GRAPH_API_VERSION: str = "v26.0"
+    WEBHOOK_VERIFY_TOKEN: str = "perc_webhook_secret_token"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,5 +1,16 @@
-from typing import Any
+import hashlib
+import hmac
+import logging
+from typing import Any, Generator, Optional
+from fastapi import Depends, Header, HTTPException, Request, status
+from sqlalchemy.orm import Session
+
 from app.agent.graph import build_response_graph
+from app.core.config import settings
+from app.db.session import get_db_session
+from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
+
+logger = logging.getLogger(__name__)
 
 
 def get_response_graph() -> Any:
@@ -8,3 +19,58 @@ def get_response_graph() -> Any:
     Can be overridden in tests via app.dependency_overrides[get_response_graph].
     """
     return build_response_graph()
+
+
+def get_whatsapp_repo(
+    db: Session = Depends(get_db_session),
+) -> WhatsAppMessageRepository:
+    """Dependency provider for WhatsAppMessageRepository."""
+    return WhatsAppMessageRepository(db)
+
+
+async def verify_meta_signature(
+    request: Request,
+    x_hub_signature_256: Optional[str] = Header(None, alias="X-Hub-Signature-256"),
+) -> bytes:
+    """
+    Verify the incoming X-Hub-Signature-256 HMAC-SHA256 signature from Meta.
+    Returns raw request bytes if valid.
+    Raises 403 Forbidden if signature is missing or invalid when META_APP_SECRET is set.
+    """
+    body = await request.body()
+    secret = settings.META_APP_SECRET
+
+    if not secret:
+        # If no secret is configured in dev/testing, allow requests with a warning
+        logger.debug("META_APP_SECRET not configured. Skipping HMAC signature check.")
+        return body
+
+    if not x_hub_signature_256:
+        logger.warning("Rejecting Meta webhook request: Missing X-Hub-Signature-256 header.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing X-Hub-Signature-256 header",
+        )
+
+    if not x_hub_signature_256.startswith("sha256="):
+        logger.warning("Rejecting Meta webhook request: Malformed X-Hub-Signature-256 header.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Malformed X-Hub-Signature-256 header",
+        )
+
+    received_sig = x_hub_signature_256[7:]
+    expected_sig = hmac.new(
+        key=secret.encode("utf-8"),
+        msg=body,
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected_sig, received_sig):
+        logger.warning("Rejecting Meta webhook request: Invalid HMAC-SHA256 signature.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid X-Hub-Signature-256 signature",
+        )
+
+    return body

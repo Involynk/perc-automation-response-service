@@ -5,6 +5,7 @@ from app.db.models.eligibility import EligibilityPolicyModel, ProgramEligibility
 from app.db.models.availability import AvailabilityInfoModel
 from app.db.models.admission_status import AdmissionStatusModel
 from app.db.models.knowledge_chunk import KnowledgeChunkModel
+from app.db.models.whatsapp_message import ProcessedWhatsAppMessageModel
 
 __all__ = [
     "CourseModel",
@@ -16,4 +17,5 @@ __all__ = [
     "AvailabilityInfoModel",
     "AdmissionStatusModel",
     "KnowledgeChunkModel",
+    "ProcessedWhatsAppMessageModel",
 ]
