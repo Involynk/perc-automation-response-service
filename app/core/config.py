@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str | None = "qwen3:8b"
     OLLAMA_TIMEOUT: int | None = 180
 
+    # Meta WhatsApp Cloud API configuration
+    META_ACCESS_TOKEN: str | None = None
+    WABA_ID: str | None = None
+    PHONE_NUMBER_ID: str | None = None
+    GRAPH_API_VERSION: str = "v26.0"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
