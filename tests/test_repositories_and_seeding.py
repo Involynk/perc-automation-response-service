@@ -107,7 +107,7 @@ def test_not_found_behavior(db_session):
 
 
 def test_processed_event_repository_idempotency_and_concurrency(db_session):
-    """Test durable PostgreSQL Kafka eventId persistence and duplicate conflict handling."""
+    """Test durable PostgreSQL service eventId persistence and duplicate conflict handling."""
     from app.repositories.event_repository import ProcessedEventRepository
 
     repo = ProcessedEventRepository(db_session)

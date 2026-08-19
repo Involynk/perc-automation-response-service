@@ -1,86 +1,31 @@
 # SERVICE_CONNECTIONS.yaml — response-service
-# Format mirrors the master SERVICE_CONNECTIONS_MAP.yaml at the repo root.
+# Aligned with the PERC Hybrid Response Service Architecture (FastAPI + LangGraph + Structured DB / RAG + Ollama Qwen3 8B)
 
 service: response-service
 description: >
-  AI Conversation & Outbound Message Delivery Engine. The ONLY service authorized to send WhatsApp/SMS messages
-  to leads. Evaluates full conversation history with AI, detects meeting booking intent, delivers initial welcome messages,
-  context-aware follow-ups, and meeting confirmation links.
+  Intelligent AI Response Service for PERC educational institute queries.
+  Combines Structured Database (exact facts for courses, fees, branches, eligibility, admission)
+  and RAG (pgvector for policies, FAQs, brochures) powered by LangGraph, FastAPI, and Ollama (Qwen3 8B).
+  Redis Streams is used for service events and audit logs.
 
-subscribes_to:
-  - topic: perc.lead-events
-    from_service: lead-capture-service
-    filter: "isNewLead === true"
-    action: "Sends initial welcome message and analyzes conversation with AI"
+primary_api:
+  endpoint: POST /api/v1/response
+  auth: X-Internal-API-Key
+  description: Core synchronous question-answering endpoint for student inquiries.
+  request_schema:
+    session_id: string
+    message: string
+    metadata: object
+  response_schema:
+    session_id: string
+    answer: string
+    status: string
+    intent: string
+    sources: array
+    clarification_required: boolean
+    clarification_question: string | null
 
-  - topic: perc.lead-events
-    from_service: lead-capture-service
-    filter: "isNewLead === false"
-    action: >
-      AI Engine evaluates lead's new message and conversation history. If meeting booking intent is detected,
-      emits perc.meeting.create-requested to meeting-service. Otherwise, generates and sends conversational reply.
-
-  - topic: perc.followup.action-required
-    from_service: followup-service
-    filter: none
-    action: "Formulates and delivers context-aware follow-up re-engagement message to lead"
-
-  - topic: perc.meeting-events
-    from_service: meeting-service
-    filter: "event === 'meeting.booked'"
-    action: "Delivers WhatsApp meeting confirmation to lead containing scheduledAt and generated meetingLink"
-
-produces:
-  - topic: perc.response.sent
-    event: response.sent
-    kafka_key: leadId
-    payload_schema:
-      eventId: string
-      leadId: string
-      correlationId: string       # Same as leadId — Kafka partition key
-      responseType: "general_reply | welcome"
-      channel: string
-      sentAt: string              # ISO 8601
-    subscribers:
-      - service: scheduler-service
-        filter: none
-        action: "Creates or resets the 2-hour follow-up inactivity countdown timer for this lead"
-      - service: timeline-service
-        filter: none
-        action: "Logs RESPONSE_SENT audit entry in lead's journey timeline"
-      - service: analytics-service
-        filter: none
-        action: "Tracks response time, interactive engagement, and delivery rate metrics"
-
-  - topic: perc.followup.sent
-    event: followup.sent
-    kafka_key: leadId
-    payload_schema:
-      eventId: string
-      leadId: string
-      channel: string
-      sentAt: string              # ISO 8601
-    subscribers:
-      - service: scheduler-service
-        filter: none
-        action: "Resets 2-hour inactivity timer for next follow-up cycle"
-      - service: timeline-service
-        filter: none
-        action: "Logs FOLLOWUP_SENT audit entry in lead's journey timeline"
-      - service: analytics-service
-        filter: none
-        action: "Tracks follow-up re-engagement conversion rates and delivery metrics"
-
-  - topic: perc.meeting.create-requested
-    event: meeting.create.requested
-    kafka_key: leadId
-    payload_schema:
-      eventId: string
-      leadId: string
-      channel: string
-      requestedByMessage: string
-      requestedAt: string
-    subscribers:
-      - service: meeting-service
-        filter: none
-        action: "Creates meeting record in DB, generates video conference link (Google Meet / Jitsi), emits meeting.booked"
+event_stream:
+  provider: redis_streams
+  stream_key: perc:events:response-service
+  description: Publishes query evaluation logs, audit entries, and service events to Redis Streams.

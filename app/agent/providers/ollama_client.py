@@ -1,11 +1,12 @@
 import json
+import logging
 from typing import Any, Optional
-
 import requests
 
 from app.core.config import settings
-
 from .llm_query_provider import BaseLLMClient
+
+logger = logging.getLogger(__name__)
 
 
 class OllamaError(Exception):
@@ -15,51 +16,53 @@ class OllamaError(Exception):
 class OllamaLLMClient(BaseLLMClient):
     """Concrete BaseLLMClient implementation for Ollama local HTTP API.
 
-    This client performs simple non-streaming POST requests to Ollama's
-    `/api/generate` endpoint using the configured model.
+    Optimized for fast, bounded response times with format='json', stream=False,
+    and bounded num_predict.
     """
 
-    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None, timeout: Optional[int] = None):
-        self.base_url = base_url or settings.OLLAMA_BASE_URL
-        self.model = model or settings.OLLAMA_MODEL
-        self.timeout = timeout or settings.OLLAMA_TIMEOUT
-        if not self.base_url:
-            raise ValueError("OLLAMA_BASE_URL must be configured")
-        if not self.model:
-            raise ValueError("OLLAMA_MODEL must be configured")
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        timeout: Optional[int] = None,
+    ):
+        self.base_url = base_url or settings.OLLAMA_BASE_URL or "http://localhost:11434"
+        self.model = model or settings.OLLAMA_MODEL or "qwen3:8b"
+        # Bounded practical timeout (default 15 seconds)
+        self.timeout = timeout or getattr(settings, "OLLAMA_TIMEOUT", 15) or 15
 
-    def _generate_url(self) -> str:
+    def _generate_url() -> str:
         return self.base_url.rstrip("/") + "/api/generate"
 
     def generate(self, prompt: str) -> str:
-        url = self._generate_url()
+        url = self.base_url.rstrip("/") + "/api/generate"
         payload = {
             "model": self.model,
             "prompt": prompt,
-            # non-streaming request
             "stream": False,
+            "format": "json",  # Enforce structured JSON output natively in Ollama
             "options": {
                 "temperature": float(getattr(settings, "LLM_TEMPERATURE", 0.0) or 0.0),
-                "num_predict": 2048,
+                "num_predict": 256,  # Bounded generation tokens for fast classification/synthesis
             },
         }
         try:
             resp = requests.post(url, json=payload, timeout=self.timeout)
         except requests.exceptions.Timeout as exc:
-            raise OllamaError(f"Ollama request timed out: {exc}")
+            logger.warning(f"Ollama request timed out after {self.timeout}s: {exc}")
+            raise OllamaError(f"Ollama request timed out after {self.timeout}s: {exc}")
         except requests.exceptions.RequestException as exc:
+            logger.warning(f"Ollama connection error on {url}: {exc}")
             raise OllamaError(f"Ollama connection error: {exc}")
 
         if resp.status_code >= 400:
             raise OllamaError(f"Ollama returned HTTP {resp.status_code}: {resp.text}")
 
-        # Attempt to parse JSON
         try:
             data = resp.json()
         except Exception as exc:
             raise OllamaError(f"Malformed Ollama JSON response: {exc}")
 
-        # Ollama standard response field is 'response'
         try:
             if "response" in data and isinstance(data["response"], str) and data["response"].strip():
                 return data["response"]
@@ -67,7 +70,6 @@ class OllamaLLMClient(BaseLLMClient):
             if "thinking" in data and isinstance(data["thinking"], str) and data["thinking"].strip():
                 return data["thinking"]
 
-            # Choices -> content -> output_text fallback (OpenAI/proxy compatibility)
             choices = data.get("choices") or []
             if choices:
                 first = choices[0]
@@ -85,8 +87,10 @@ class OllamaLLMClient(BaseLLMClient):
             if "text" in data and isinstance(data["text"], str):
                 return data["text"]
 
-            # As a last resort, serialize the JSON back to string
-            return json.dumps(data)
+            if isinstance(data, dict) and data:
+                return json.dumps(data)
+
+            raise OllamaError("Ollama returned empty response payload")
         except Exception as exc:
             raise OllamaError(f"Failed to extract text from Ollama response: {exc}")
 
@@ -97,7 +101,7 @@ class OllamaLLMClient(BaseLLMClient):
         resp = None
         for url in (tags_url, models_url):
             try:
-                resp = requests.get(url, timeout=self.timeout)
+                resp = requests.get(url, timeout=min(5, self.timeout))
                 if resp.status_code < 400:
                     break
             except requests.exceptions.RequestException:
@@ -111,7 +115,6 @@ class OllamaLLMClient(BaseLLMClient):
 
         try:
             data = resp.json()
-            # Ollama /api/tags returns {"models": [{"name": "qwen3:8b", ...}]}
             raw_models = data.get("models", data) if isinstance(data, dict) else data
             models = []
             if isinstance(raw_models, list):

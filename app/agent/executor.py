@@ -1,19 +1,17 @@
+import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from app.schemas.agent import AgentState, ToolResult, RetrievedDocument
 from app.agent.router import RouteType, RoutingDecision
 
+logger = logging.getLogger(__name__)
+
 
 class ExecutionEngine:
     """Centralized execution engine for Phase 5D.
 
-    By default this engine expects to be constructed with two optional
-    collaborators which are safe to mock in tests:
-      - structured_service: an instance of `StructuredDataService`
-      - retriever: an instance of `KnowledgeRetriever`
-
-    If not provided, the engine will attempt to construct real services
-    which may require DB access; tests should inject fakes.
+    Constructs real DB-backed services (StructuredDataService, KnowledgeRetriever)
+    on demand if not explicitly injected by tests.
     """
 
     def __init__(self, structured_service: Any = None, retriever: Any = None):
@@ -72,31 +70,51 @@ class ExecutionEngine:
                 # Build parameters from state.entities and query conservatively
                 params = self._build_tool_params(tool, state)
                 if params is None:
-                    # missing required information
                     state.tool_results.append(ToolResult(tool_name=tool, success=False, error="Missing parameters for tool execution", metadata={"reason": "missing_parameters"}))
                     return
 
+                service = self.structured_service
+                db_session = None
+                if service is None:
+                    from app.db.session import SessionLocal
+                    from app.services.structured_data_service import StructuredDataService
+                    db_session = SessionLocal()
+                    service = StructuredDataService(db_session)
+
                 try:
                     func = self._tool_map[tool]
-                    result = func(self.structured_service, params)
+                    result = func(service, params)
                     state.tool_results.append(result)
                 except Exception as exc:
+                    logger.error(f"Error executing structured tool {tool}: {exc}", exc_info=True)
                     state.tool_results.append(ToolResult(tool_name=tool, success=False, error=str(exc), metadata={}))
+                finally:
+                    if db_session is not None:
+                        db_session.close()
 
             elif route.route == RouteType.RAG:
-                # Use retriever.search to fetch documents
+                retriever = self.retriever
+                db_session = None
+                if retriever is None:
+                    from app.db.session import SessionLocal
+                    from app.rag.retrieval import KnowledgeRetriever
+                    db_session = SessionLocal()
+                    retriever = KnowledgeRetriever(db_session)
+
                 try:
                     top_k = 3
-                    docs = self.retriever.search(state.query or "", top_k=top_k)
+                    docs = retriever.search(state.query or "", top_k=top_k)
                     rd_list = [RetrievedDocument.model_validate(d.model_dump()) if hasattr(d, "model_dump") else d for d in docs]
                     state.retrieved_documents.extend(rd_list)
-                    # Add a ToolResult entry summarizing the retrieval
                     state.tool_results.append(ToolResult(tool_name="rag_search", success=True, data=[d.model_dump() for d in rd_list], metadata={"count": len(rd_list)}))
                 except Exception as exc:
+                    logger.error(f"Error executing RAG search for query \"{state.query}\": {exc}", exc_info=True)
                     state.tool_results.append(ToolResult(tool_name="rag_search", success=False, error=str(exc), metadata={}))
+                finally:
+                    if db_session is not None:
+                        db_session.close()
 
             elif route.route == RouteType.CLARIFICATION:
-                # no execution; preserve ambiguity
                 state.metadata["execution_status"] = "awaiting_clarification"
                 return
 
@@ -116,32 +134,46 @@ class ExecutionEngine:
         else:
             _exec_single(rd)
 
-        # mark finished
         if "execution_status" not in state.metadata:
             state.metadata["execution_status"] = "ok"
 
         return state
 
     def _build_tool_params(self, tool: str, state: AgentState) -> Optional[Any]:
-        # Conservative parameter construction: map known entity fields to tool input models
         entities = state.entities
         q = state.query
 
         if tool == "get_course_info":
             from app.tools.structured import CourseInfoToolInput
-            return CourseInfoToolInput(course_name=entities.course, course_id=entities.additional_entities.get("course_id") if entities and entities.additional_entities else None, target_class=entities.target_class, category=entities.category, exam=entities.exam)
+            return CourseInfoToolInput(
+                course_name=entities.course or entities.program if entities else None,
+                course_id=entities.additional_entities.get("course_id") if entities and entities.additional_entities else None,
+                target_class=entities.target_class if entities else None,
+                category=entities.category if entities else None,
+                exam=entities.exam if entities else None,
+            )
 
         if tool == "get_fee":
             from app.tools.structured import FeeToolInput
-            return FeeToolInput(course_name=entities.course, course_id=entities.additional_entities.get("course_id") if entities and entities.additional_entities else None)
+            return FeeToolInput(
+                course_name=entities.course or entities.program if entities else None,
+                course_id=entities.additional_entities.get("course_id") if entities and entities.additional_entities else None,
+            )
 
         if tool == "get_branch_info":
             from app.tools.structured import BranchInfoToolInput
-            return BranchInfoToolInput(branch_name=entities.branch, branch_id=entities.additional_entities.get("branch_id") if entities and entities.additional_entities else None)
+            return BranchInfoToolInput(
+                branch_name=entities.branch if entities else None,
+                branch_id=entities.additional_entities.get("branch_id") if entities and entities.additional_entities else None,
+            )
 
         if tool == "get_eligibility":
             from app.tools.structured import EligibilityToolInput
-            return EligibilityToolInput(program_name=entities.program or entities.course, course_id=entities.additional_entities.get("course_id") if entities and entities.additional_entities else None, target_class=entities.target_class)
+            return EligibilityToolInput(
+                program_name=entities.program or entities.course if entities else None,
+                course_id=entities.additional_entities.get("course_id") if entities and entities.additional_entities else None,
+                target_class=entities.target_class if entities else None,
+            )
 
         if tool == "get_admission_steps":
             from app.tools.structured import AdmissionStepsToolInput

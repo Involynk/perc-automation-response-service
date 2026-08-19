@@ -5,7 +5,7 @@ from app.db.base import Base
 
 class ProcessedEventModel(Base):
     """
-    Tracks processed Kafka event IDs to enforce cluster-wide durable idempotency
+    Tracks processed service event IDs to enforce cluster-wide durable idempotency
     across multiple replica pods in production.
     """
     __tablename__ = "resp_processed_events"

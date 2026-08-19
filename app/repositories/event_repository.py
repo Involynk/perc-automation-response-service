@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class ProcessedEventRepository:
     """
-    Repository for persisting and checking Kafka event IDs in PostgreSQL
+    Repository for persisting and checking service event IDs in PostgreSQL
     for cluster-wide durable idempotency across multiple replica pods.
     """
 
@@ -55,7 +55,7 @@ class ProcessedEventRepository:
             self.db.add(record)
             self.db.commit()
             self.db.refresh(record)
-            logger.info(f"💾 Persisted durable event idempotency: event_id={event_id} topic={topic}")
+            logger.info(f"Persisted durable event idempotency: event_id={event_id} topic={topic}")
             return record
         except IntegrityError:
             self.db.rollback()

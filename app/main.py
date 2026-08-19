@@ -1,18 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.v1.router import api_router
-from app.services.event_consumer import KafkaEventConsumerService
-
-consumer_service = KafkaEventConsumerService()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start Kafka consumer worker if configured
-    await consumer_service.start()
+    # Application startup lifecycle
     yield
-    # Shutdown: Stop Kafka consumer worker cleanly
-    await consumer_service.stop()
+    # Application shutdown lifecycle
 
 
 app = FastAPI(

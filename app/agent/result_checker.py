@@ -94,7 +94,7 @@ def evaluate_result_check(state: Any, min_rag_relevance: float = 0.70) -> Result
     # Empty results: no structured successes and no RAG, or all structured successes were empty
     if structured_success == 0 and rag_count == 0:
         rc.has_empty_results = True
-    elif structured_empty > 0 and structured_empty == structured_success:
+    elif structured_empty > 0 and structured_empty == structured_success and rag_count == 0:
         rc.has_empty_results = True
     else:
         rc.has_empty_results = False
@@ -113,7 +113,6 @@ def evaluate_result_check(state: Any, min_rag_relevance: float = 0.70) -> Result
     # Conflict detection: conservative checks
     conflicts = []
     if structured_success > 0 and rag_count > 0:
-        # For each structured ToolResult, compare top-level scalar fields against retrieved_documents' metadata
         for tr in getattr(state, "tool_results", []) or []:
             if not tr.success:
                 continue
@@ -122,7 +121,6 @@ def evaluate_result_check(state: Any, min_rag_relevance: float = 0.70) -> Result
             data = tr.data
             if isinstance(data, dict):
                 for k, v in data.items():
-                    # only compare simple scalar values
                     if isinstance(v, (str, int, float, bool)):
                         for doc in getattr(state, "retrieved_documents", []) or []:
                             if doc.metadata and k in doc.metadata:
@@ -133,22 +131,23 @@ def evaluate_result_check(state: Any, min_rag_relevance: float = 0.70) -> Result
 
     # Confidence scoring: deterministic and explainable
     score = 0.0
-    # structured success is high authority
     if structured_success > 0:
         score += 0.7
-    # rag contributes moderately
+
     if rag_count > 0:
-        score += 0.4
-    # subtract for failures
-    score -= min(0.5, 0.2 * structured_failed)
-    # subtract for conflicts
+        valid_rag = rag_count - rag_below_threshold
+        if valid_rag > 0:
+            score += 0.7
+        else:
+            score += 0.2  # Below threshold evidence has lower confidence
+
+    if rc.has_failed_results:
+        score -= min(0.4, 0.2 * structured_failed)
     if rc.has_conflicts:
         score -= 0.3
-    # penalize if evidence empty or below threshold
     if rc.has_empty_results:
-        score -= 0.4
+        score = 0.0
 
-    # clamp
     if score < 0.0:
         score = 0.0
     if score > 1.0:
@@ -156,8 +155,8 @@ def evaluate_result_check(state: Any, min_rag_relevance: float = 0.70) -> Result
 
     rc.confidence_score = round(score, 3)
 
-    # Determine sufficiency: simple thresholds
-    rc.is_sufficient = rc.confidence_score >= 0.6 and not rc.has_conflicts
+    # Determine sufficiency: threshold check
+    rc.is_sufficient = rc.confidence_score >= 0.6 and not rc.has_conflicts and not rc.has_empty_results
 
     # Per-intent evidence: if MULTI_INTENT, look for sub_routes
     per_intent = []
@@ -165,7 +164,6 @@ def evaluate_result_check(state: Any, min_rag_relevance: float = 0.70) -> Result
     if rd and isinstance(rd, dict) and rd.get("route") == "MULTI_INTENT":
         subs = rd.get("sub_routes") or []
         for sub in subs:
-            # For each sub-route, determine if it had evidence
             r = {"route": sub.get("route"), "tool_name": sub.get("tool_name"), "has_evidence": False}
             if sub.get("route") == "RAG":
                 r["has_evidence"] = rag_count > 0

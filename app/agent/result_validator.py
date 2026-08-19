@@ -61,8 +61,25 @@ def validate_draft(state: AgentState, draft: DraftAnswerModel) -> DraftValidatio
             res.issues.append("requires_clarification")
             return res
 
-    # Evidence availability: ensure draft references at least one evidence item
+    # Evidence availability: ensure draft references at least one evidence item if evidence was found
     if not draft.evidence or len(draft.evidence) == 0:
+        if rc and getattr(rc, "has_empty_results", False):
+            # No evidence was available in the database/knowledge base; safe escalation draft is expected
+            res.is_grounded = True
+            res.is_valid = True
+            res.confidence_score = 1.0
+            vr = ValidationResult(
+                is_valid=True,
+                is_grounded=True,
+                is_safe=True,
+                hallucination_detected=False,
+                policy_violation=False,
+                issues=[],
+                confidence_score=1.0,
+            )
+            state.validation_result = vr
+            return res
+
         res.is_grounded = False
         res.is_valid = False
         res.issues.append("no_evidence_in_draft")
@@ -89,7 +106,7 @@ def validate_draft(state: AgentState, draft: DraftAnswerModel) -> DraftValidatio
         structured_amounts = []
         for tr in getattr(state, "tool_results", []) or []:
             if tr.tool_name == "get_fee" and tr.success and isinstance(tr.data, dict):
-                a = tr.data.get("amount")
+                a = tr.data.get("amount") or tr.data.get("total_fee") or tr.data.get("base_fee")
                 if isinstance(a, (int, float)):
                     structured_amounts.append(float(a))
 
@@ -107,7 +124,6 @@ def validate_draft(state: AgentState, draft: DraftAnswerModel) -> DraftValidatio
 
     # Live-seat / availability protection
     if state.intent and state.intent.value == "C9_AVAILABILITY_STATUS":
-        # If draft mentions "seats" or "available", ensure there is a get_availability
         if re.search(r"\bseat|seats|available|capacity\b", draft.draft_answer, re.I):
             has_avail = any(tr.tool_name == "get_availability" and tr.success for tr in getattr(state, "tool_results", []) or [])
             if not has_avail:
@@ -118,7 +134,6 @@ def validate_draft(state: AgentState, draft: DraftAnswerModel) -> DraftValidatio
     if getattr(state, "secondary_intents", None):
         per = getattr(state.result_check, "per_intent_evidence", None) if state.result_check else None
         if per:
-            # count evidence entries in draft
             if len(draft.evidence) < len(per):
                 res.coverage_ok = False
                 res.is_valid = False

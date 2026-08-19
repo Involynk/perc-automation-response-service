@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends
@@ -43,6 +44,7 @@ def generate_response(
     graph: Any = Depends(get_response_graph),
 ) -> ResponseResponse:
     """Execute LangGraph response pipeline and map final state to ResponseResponse."""
+    start_time = time.perf_counter()
     graph_input = {
         "session_id": request.session_id,
         "query": request.message,
@@ -52,7 +54,8 @@ def generate_response(
     try:
         raw_result = graph.invoke(graph_input)
     except Exception as exc:
-        logger.error(f"Graph execution failed for session {request.session_id}: {exc}", exc_info=True)
+        elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        logger.error(f"❌ Graph execution failed for session {request.session_id} after {elapsed_ms}ms: {exc}", exc_info=True)
         return ResponseResponse(
             session_id=request.session_id,
             answer="An error occurred while processing your request. Please try again later.",
@@ -60,6 +63,8 @@ def generate_response(
             sources=[],
             clarification_required=False,
         )
+
+    elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
     # Extract session_id
     session_id = (
@@ -212,6 +217,11 @@ def generate_response(
         else:
             status = "escalated"
             answer = "I was unable to find sufficient information to answer your query. Please contact the PERC admissions team for assistance."
+
+    logger.info(
+        f"📊 [RESPONSE PROCESSED] session_id={session_id} intent={intent.value if intent else 'None'} "
+        f"status={status} latency_ms={elapsed_ms} sources={sources}"
+    )
 
     return ResponseResponse(
         session_id=session_id,

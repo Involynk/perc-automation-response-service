@@ -1,6 +1,7 @@
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+psycopg://postgres:postgres_password@localhost:5432/perc_db"
     ENVIRONMENT: str = "development"
@@ -9,14 +10,14 @@ class Settings(BaseSettings):
 
     # LLM provider configuration (used when QUERY_UNDERSTANDING_PROVIDER == 'llm')
     LLM_PROVIDER: str | None = None
-    LLM_MODEL: str | None = None
+    LLM_MODEL: str | None = "qwen3:8b"
     LLM_TEMPERATURE: float | None = 0.0
     # Ollama-specific configuration
     OLLAMA_BASE_URL: str | None = "http://localhost:11434"
     OLLAMA_MODEL: str | None = "qwen3:8b"
     OLLAMA_TIMEOUT: int | None = 180
 
-    # Meta WhatsApp Cloud API configuration
+    # Meta WhatsApp Cloud API configuration (optional / direct outbound)
     META_ACCESS_TOKEN: str | None = None
     META_APP_SECRET: str | None = None
     WABA_ID: str | None = None
@@ -27,16 +28,13 @@ class Settings(BaseSettings):
     # Internal Microservices Authentication
     INTERNAL_SERVICE_API_KEY: str | None = None
 
-    # Kafka Event Bus Configuration
-    KAFKA_BOOTSTRAP_SERVERS: str | None = None
-    KAFKA_CLIENT_ID: str = "response-service-producer"
-    KAFKA_CONSUMER_GROUP_ID: str = "response-service-group"
-    KAFKA_ENABLED: bool = False
+    # Redis Streams for Service Events / Logs
+    REDIS_URL: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
     )
 
     @field_validator("DATABASE_URL")

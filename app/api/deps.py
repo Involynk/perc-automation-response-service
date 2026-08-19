@@ -10,7 +10,6 @@ from app.core.config import settings
 from app.db.session import get_db_session
 from app.repositories.event_repository import ProcessedEventRepository
 from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
-from app.services.event_producer import BaseEventProducer, get_event_producer_instance
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +34,6 @@ def get_event_repo(
 ) -> ProcessedEventRepository:
     """Dependency provider for ProcessedEventRepository."""
     return ProcessedEventRepository(db)
-
-
-def get_event_producer() -> BaseEventProducer:
-    """Dependency provider for the EventProducer service."""
-    return get_event_producer_instance()
 
 
 def verify_internal_api_key(
