@@ -9,6 +9,7 @@ from app.agent.graph import build_response_graph
 from app.core.config import settings
 from app.db.session import get_db_session
 from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
+from app.services.event_producer import BaseEventProducer, get_event_producer_instance
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,11 @@ def get_whatsapp_repo(
 ) -> WhatsAppMessageRepository:
     """Dependency provider for WhatsAppMessageRepository."""
     return WhatsAppMessageRepository(db)
+
+
+def get_event_producer() -> BaseEventProducer:
+    """Dependency provider for the EventProducer service."""
+    return get_event_producer_instance()
 
 
 def verify_internal_api_key(

@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # Internal Microservices Authentication
     INTERNAL_SERVICE_API_KEY: str | None = None
 
+    # Kafka Event Bus Configuration
+    KAFKA_BOOTSTRAP_SERVERS: str | None = None
+    KAFKA_CLIENT_ID: str = "response-service-producer"
+    KAFKA_ENABLED: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

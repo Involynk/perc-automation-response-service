@@ -6,13 +6,25 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from pydantic import BaseModel, Field, ValidationError
 import httpx
 
-from app.api.deps import get_response_graph, get_whatsapp_repo, verify_internal_api_key, verify_meta_signature
+from app.api.deps import (
+    get_event_producer,
+    get_response_graph,
+    get_whatsapp_repo,
+    verify_internal_api_key,
+    verify_meta_signature,
+)
 from app.api.v1.endpoints.response import generate_response
 from app.core.config import settings
 from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
+from app.schemas.events import (
+    FollowupSentEventPayload,
+    MeetingCreateRequestedEventPayload,
+    ResponseSentEventPayload,
+)
 from app.schemas.request import ResponseRequest
 from app.schemas.whatsapp_webhook import MetaWebhookPayload
-from app.services.whatsapp_service import send_whatsapp_message, send_whatsapp_template
+from app.services.event_producer import BaseEventProducer
+from app.services.whatsapp_service import clean_phone_number, send_whatsapp_message, send_whatsapp_template
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +34,29 @@ router = APIRouter()
 class WhatsAppRequest(BaseModel):
     phone: str = Field(..., description="Recipient phone number with country code (e.g. 919380019642)")
     message: str = Field(..., description="Text message content to send")
+    lead_id: Optional[str] = Field(default=None, description="Optional lead identifier for Kafka event correlation")
+    is_followup: bool = Field(default=False, description="Flag indicating if this outbound message is a follow-up re-engagement")
 
 
 class WhatsAppTemplateRequest(BaseModel):
     phone: str = Field(..., description="Recipient phone number with country code (e.g. 919380019642)")
     template_name: str = Field(default="hello_world", description="Approved WhatsApp template name")
     language_code: str = Field(default="en_US", description="Template language code")
+    lead_id: Optional[str] = Field(default=None, description="Optional lead identifier for Kafka event correlation")
+
+
+def _is_meeting_booking_intent(intent_str: Optional[str], text_body: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
+    """Detect if the customer message expresses intent to book a meeting or counseling session."""
+    if metadata and metadata.get("meeting_requested") is True:
+        return True
+    text_lower = text_body.lower()
+    meeting_keywords = (
+        "schedule", "book", "meeting", "counseling", "counselling",
+        "appointment", "demo", "visit", "campus visit", "talk to counselor", "callback"
+    )
+    if any(kw in text_lower for kw in meeting_keywords):
+        return True
+    return False
 
 
 @router.post(
@@ -40,13 +69,36 @@ class WhatsAppTemplateRequest(BaseModel):
     tags=["whatsapp"],
     dependencies=[Depends(verify_internal_api_key)],
 )
-async def send_response_whatsapp(request: WhatsAppRequest) -> Dict[str, Any]:
-    """Send a direct WhatsApp message using the Meta WhatsApp Cloud API."""
+async def send_response_whatsapp(
+    request: WhatsAppRequest,
+    producer: BaseEventProducer = Depends(get_event_producer),
+) -> Dict[str, Any]:
+    """Send a direct WhatsApp message and emit downstream lifecycle events upon delivery."""
     try:
         result = await send_whatsapp_message(
             recipient_phone=request.phone,
             message=request.message,
         )
+        lead_id = request.lead_id or clean_phone_number(request.phone)
+
+        # Emit corresponding lifecycle event
+        try:
+            if request.is_followup:
+                await producer.publish_followup_sent(
+                    FollowupSentEventPayload(leadId=lead_id, channel="whatsapp")
+                )
+            else:
+                await producer.publish_response_sent(
+                    ResponseSentEventPayload(
+                        leadId=lead_id,
+                        correlationId=lead_id,
+                        responseType="general_reply",
+                        channel="whatsapp",
+                    )
+                )
+        except Exception as event_err:
+            logger.error(f"⚠️ Failed to publish event after WhatsApp send to {lead_id}: {event_err}")
+
         return {
             "success": True,
             "message": "WhatsApp message sent",
@@ -76,14 +128,31 @@ async def send_response_whatsapp(request: WhatsAppRequest) -> Dict[str, Any]:
     tags=["whatsapp"],
     dependencies=[Depends(verify_internal_api_key)],
 )
-async def send_response_whatsapp_template(request: WhatsAppTemplateRequest) -> Dict[str, Any]:
-    """Send a WhatsApp pre-approved template message."""
+async def send_response_whatsapp_template(
+    request: WhatsAppTemplateRequest,
+    producer: BaseEventProducer = Depends(get_event_producer),
+) -> Dict[str, Any]:
+    """Send a WhatsApp pre-approved template message and emit downstream lifecycle events."""
     try:
         result = await send_whatsapp_template(
             recipient_phone=request.phone,
             template_name=request.template_name,
             language_code=request.language_code,
         )
+        lead_id = request.lead_id or clean_phone_number(request.phone)
+
+        try:
+            await producer.publish_response_sent(
+                ResponseSentEventPayload(
+                    leadId=lead_id,
+                    correlationId=lead_id,
+                    responseType="welcome",
+                    channel="whatsapp",
+                )
+            )
+        except Exception as event_err:
+            logger.error(f"⚠️ Failed to publish response.sent event for template to {lead_id}: {event_err}")
+
         return {
             "success": True,
             "message": "WhatsApp template sent",
@@ -123,11 +192,13 @@ async def receive_webhook(
     raw_body: bytes = Depends(verify_meta_signature),
     graph: Any = Depends(get_response_graph),
     repo: WhatsAppMessageRepository = Depends(get_whatsapp_repo),
+    producer: BaseEventProducer = Depends(get_event_producer),
 ) -> Dict[str, Any]:
     """
     Receive incoming Meta WhatsApp webhook events.
     Enforces HMAC-SHA256 signature verification, typed payload validation,
-    durable PostgreSQL message idempotency, and safe handling of all message types.
+    durable PostgreSQL message idempotency, safe handling of all message types,
+    and event publishing (perc.response.sent, perc.meeting.create-requested).
     """
     # 1. Parse and validate webhook payload using typed Pydantic models
     try:
@@ -201,6 +272,7 @@ async def receive_webhook(
                             "channel": "whatsapp",
                             "sender_phone": sender,
                             "whatsapp_message_id": msg_id,
+                            "lead_id": sender,
                         },
                     )
 
@@ -212,7 +284,22 @@ async def receive_webhook(
                         f"🤖 Generated Answer for {sender} (intent={intent_str}, status={response_res.status}): \"{generated_answer}\""
                     )
 
-                    # 6. Deliver generated reply to user via WhatsApp Cloud API
+                    # 6. Check for meeting-booking intent and emit perc.meeting.create-requested
+                    meeting_intent_detected = _is_meeting_booking_intent(intent_str, text_body, response_req.metadata)
+                    if meeting_intent_detected:
+                        try:
+                            await producer.publish_meeting_create_requested(
+                                MeetingCreateRequestedEventPayload(
+                                    leadId=sender,
+                                    channel="whatsapp",
+                                    requestedByMessage=text_body,
+                                )
+                            )
+                            logger.info(f"📅 [MEETING INTENT EMITTED] for lead {sender}")
+                        except Exception as m_err:
+                            logger.error(f"⚠️ Failed to publish meeting.create-requested for {sender}: {m_err}")
+
+                    # 7. Deliver generated reply to user via WhatsApp Cloud API
                     outgoing_meta_res = None
                     outbound_wamid = None
                     send_error = None
@@ -224,11 +311,25 @@ async def receive_webhook(
                         if outgoing_meta_res and "messages" in outgoing_meta_res and len(outgoing_meta_res["messages"]) > 0:
                             outbound_wamid = outgoing_meta_res["messages"][0].get("id")
                         logger.info(f"🚀 Outbound WhatsApp Response Delivered to {sender}: {outgoing_meta_res}")
+
+                        # 8. Emit perc.response.sent on successful outbound delivery
+                        try:
+                            await producer.publish_response_sent(
+                                ResponseSentEventPayload(
+                                    leadId=sender,
+                                    correlationId=sender,
+                                    responseType="general_reply",
+                                    channel="whatsapp",
+                                )
+                            )
+                        except Exception as p_err:
+                            logger.error(f"⚠️ Failed to publish response.sent event for {sender}: {p_err}")
+
                     except Exception as err:
                         send_error = str(err)
                         logger.error(f"⚠️ Failed to send outbound WhatsApp reply to {sender}: {err}", exc_info=True)
 
-                    # 7. Record durable idempotency state in PostgreSQL
+                    # 9. Record durable idempotency state in PostgreSQL
                     repo.record_processed_message(
                         wamid=msg_id,
                         sender_phone=sender,
@@ -252,7 +353,7 @@ async def receive_webhook(
                         "outbound_whatsapp_response": outgoing_meta_res,
                     })
 
-            # 8. Process Outbound Message Delivery Status Updates
+            # 10. Process Outbound Message Delivery Status Updates
             if value.statuses:
                 for st in value.statuses:
                     wamid = st.id
