@@ -1,0 +1,46 @@
+service_name: response-service
+version: 1.0.0
+description: PERC Hybrid AI Response Service and WhatsApp Cloud API Integration
+
+inbound:
+  - name: whatsapp_webhook
+    protocol: HTTP
+    path: /webhook
+    alternate_path: /api/v1/webhook
+    methods: [GET, POST]
+    source: Meta WhatsApp Cloud API
+    verify_token_env: WEBHOOK_VERIFY_TOKEN
+    purpose: Receive incoming parent/student WhatsApp inquiries and delivery status updates
+
+  - name: rest_api_response
+    protocol: HTTP
+    path: /api/v1/response
+    alternate_path: /response
+    methods: [POST]
+    consumer: Web Clients, Timeline Engine, Workflow Engine, CRM
+    purpose: Synchronous AI response generation endpoint
+
+  - name: health_probe
+    protocol: HTTP
+    path: /health
+    methods: [GET]
+    purpose: Liveness and readiness monitoring
+
+outbound:
+  - name: meta_whatsapp_cloud_api
+    protocol: HTTPS
+    endpoint: "https://graph.facebook.com/v26.0/${PHONE_NUMBER_ID}/messages"
+    auth: "Bearer ${META_ACCESS_TOKEN}"
+    purpose: Deliver generated AI answers and template notifications to parent/student WhatsApp numbers
+
+  - name: ollama_llm_service
+    protocol: HTTP
+    endpoint: "${OLLAMA_BASE_URL}"
+    model: "${OLLAMA_MODEL}"
+    timeout_seconds: "${OLLAMA_TIMEOUT}"
+    purpose: Intent classification (C1-C18), educational entity extraction, and grounded answer synthesis
+
+  - name: postgres_database
+    protocol: postgresql+psycopg
+    connection_uri: "${DATABASE_URL}"
+    purpose: Authoritative institutional relational tables (courses, fees, branches, eligibility, availability) and pgvector embeddings

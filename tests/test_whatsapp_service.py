@@ -120,7 +120,7 @@ def test_webhook_event_post():
     assert resp.status_code == 200
     assert resp.json()["status"] == "received"
 
-    # Test incoming customer message payload
+    # Test incoming customer message payload with full enquiry-to-response flow
     payload_incoming = {
         "object": "whatsapp_business_account",
         "entry": [
@@ -138,7 +138,7 @@ def test_webhook_event_post():
                                     "id": "wamid.incoming123",
                                     "timestamp": "1724050100",
                                     "type": "text",
-                                    "text": {"body": "What courses do you offer?"},
+                                    "text": {"body": "Hi, What does PERC offer?"},
                                 }
                             ],
                         },
@@ -148,8 +148,22 @@ def test_webhook_event_post():
             }
         ],
     }
-    resp_msg = client.post("/webhook", json=payload_incoming)
-    assert resp_msg.status_code == 200
-    assert resp_msg.json()["status"] == "received"
+
+    with patch("app.api.v1.endpoints.whatsapp.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = {"messaging_product": "whatsapp", "messages": [{"id": "wamid.outgoing_reply"}]}
+
+        resp_msg = client.post("/webhook", json=payload_incoming)
+        assert resp_msg.status_code == 200
+        data = resp_msg.json()
+        assert data["status"] == "received"
+        assert data["processed_count"] == 1
+        processed = data["processed_messages"][0]
+        assert processed["sender"] == "919380019642"
+        assert processed["enquiry"] == "Hi, What does PERC offer?"
+        assert len(processed["generated_answer"]) > 0
+        assert mock_send.called
+        assert mock_send.call_args[1]["recipient_phone"] == "919380019642"
+        assert mock_send.call_args[1]["message"] == processed["generated_answer"]
+
 
 
