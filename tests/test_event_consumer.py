@@ -1,5 +1,6 @@
+import uuid
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.schemas.events import (
     FollowupActionRequiredPayload,
     LeadEventPayload,
@@ -20,13 +21,33 @@ from app.services.event_producer import (
 )
 
 
+class InMemoryEventRepo:
+    """Mock durable event repository for deterministic unit tests."""
+    def __init__(self):
+        self.processed = set()
+
+    def is_already_processed(self, event_id: str) -> bool:
+        return event_id in self.processed
+
+    def record_processed_event(self, event_id: str, topic: str, lead_id: str):
+        if event_id in self.processed:
+            return None
+        self.processed.add(event_id)
+        return True
+
+
+@pytest.fixture
+def mock_event_repo():
+    return InMemoryEventRepo()
+
+
 @pytest.mark.asyncio
-async def test_handle_new_lead_event():
+async def test_handle_new_lead_event(mock_event_repo):
     producer = InMemoryEventProducer()
-    handler = EventConsumerHandler(producer=producer)
+    handler = EventConsumerHandler(producer=producer, event_repo=mock_event_repo)
 
     payload = LeadEventPayload(
-        eventId="evt_new_lead_001",
+        eventId=f"evt_new_lead_{uuid.uuid4().hex}",
         leadId="lead_101",
         isNewLead=True,
         name="Rohit",
@@ -55,12 +76,12 @@ async def test_handle_new_lead_event():
 
 
 @pytest.mark.asyncio
-async def test_handle_existing_lead_conversational_event():
+async def test_handle_existing_lead_conversational_event(mock_event_repo):
     producer = InMemoryEventProducer()
-    handler = EventConsumerHandler(producer=producer)
+    handler = EventConsumerHandler(producer=producer, event_repo=mock_event_repo)
 
     payload = LeadEventPayload(
-        eventId="evt_lead_msg_002",
+        eventId=f"evt_lead_msg_{uuid.uuid4().hex}",
         leadId="lead_102",
         isNewLead=False,
         phone="919380019642",
@@ -83,12 +104,12 @@ async def test_handle_existing_lead_conversational_event():
 
 
 @pytest.mark.asyncio
-async def test_handle_lead_event_with_meeting_booking_intent():
+async def test_handle_lead_event_with_meeting_booking_intent(mock_event_repo):
     producer = InMemoryEventProducer()
-    handler = EventConsumerHandler(producer=producer)
+    handler = EventConsumerHandler(producer=producer, event_repo=mock_event_repo)
 
     payload = LeadEventPayload(
-        eventId="evt_lead_meeting_003",
+        eventId=f"evt_lead_meeting_{uuid.uuid4().hex}",
         leadId="lead_103",
         isNewLead=False,
         phone="919380019642",
@@ -108,12 +129,12 @@ async def test_handle_lead_event_with_meeting_booking_intent():
 
 
 @pytest.mark.asyncio
-async def test_handle_followup_action_required():
+async def test_handle_followup_action_required(mock_event_repo):
     producer = InMemoryEventProducer()
-    handler = EventConsumerHandler(producer=producer)
+    handler = EventConsumerHandler(producer=producer, event_repo=mock_event_repo)
 
     payload = FollowupActionRequiredPayload(
-        eventId="evt_followup_004",
+        eventId=f"evt_followup_{uuid.uuid4().hex}",
         leadId="lead_104",
         phone="919380019642",
         followupType="2h_inactivity",
@@ -140,13 +161,13 @@ async def test_handle_followup_action_required():
 
 
 @pytest.mark.asyncio
-async def test_handle_meeting_event():
+async def test_handle_meeting_event(mock_event_repo):
     producer = InMemoryEventProducer()
-    handler = EventConsumerHandler(producer=producer)
+    handler = EventConsumerHandler(producer=producer, event_repo=mock_event_repo)
 
     # 1. Booked meeting event -> sends confirmation and emits response.sent
     payload_booked = MeetingEventPayload(
-        eventId="evt_meeting_005",
+        eventId=f"evt_meeting_{uuid.uuid4().hex}",
         event="meeting.booked",
         leadId="lead_105",
         phone="919380019642",
@@ -170,7 +191,7 @@ async def test_handle_meeting_event():
 
     # 2. Other meeting event -> ignored
     payload_other = MeetingEventPayload(
-        eventId="evt_meeting_006",
+        eventId=f"evt_meeting_other_{uuid.uuid4().hex}",
         event="meeting.cancelled",
         leadId="lead_105",
         phone="919380019642",
@@ -182,9 +203,9 @@ async def test_handle_meeting_event():
 
 
 @pytest.mark.asyncio
-async def test_dispatch_raw_event():
+async def test_dispatch_raw_event(mock_event_repo):
     producer = InMemoryEventProducer()
-    handler = EventConsumerHandler(producer=producer)
+    handler = EventConsumerHandler(producer=producer, event_repo=mock_event_repo)
 
     with patch("app.services.event_consumer.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
         mock_send.return_value = {"messages": [{"id": "wamid.d1"}]}
@@ -193,7 +214,7 @@ async def test_dispatch_raw_event():
         res_lead = await handler.dispatch_raw_event(
             TOPIC_LEAD_EVENTS,
             {
-                "eventId": "evt_disp_1",
+                "eventId": f"evt_disp_{uuid.uuid4().hex}",
                 "leadId": "lead_d1",
                 "isNewLead": True,
                 "phone": "919380019642",
@@ -214,3 +235,45 @@ async def test_kafka_consumer_service_lifecycle():
     await consumer_service.start()
     assert consumer_service.running is False
     await consumer_service.stop()
+
+
+@pytest.mark.asyncio
+async def test_offset_commit_strategy_on_success_and_failure(mock_event_repo):
+    """Verify exact offset commit boundary: commit() is called on success and NOT called on failure."""
+    handler = EventConsumerHandler(producer=InMemoryEventProducer(), event_repo=mock_event_repo)
+    service = KafkaEventConsumerService(handler=handler)
+
+    class MockConsumerMsg:
+        def __init__(self, topic, value, key="k1", offset=100):
+            self.topic = topic
+            self.value = value
+            self.key = key
+            self.offset = offset
+
+    mock_consumer = AsyncMock()
+    service._consumer = mock_consumer
+    service.running = True
+
+    # 1. Successful message -> commit() called
+    with patch("app.services.event_consumer.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
+        mock_send.return_value = {"messages": [{"id": "wamid.s1"}]}
+        success_msg = MockConsumerMsg(
+            topic=TOPIC_LEAD_EVENTS,
+            value={"eventId": f"evt_ok_{uuid.uuid4().hex}", "leadId": "l1", "isNewLead": True, "phone": "919380019642", "message": "Hi"},
+        )
+        await handler.dispatch_raw_event(success_msg.topic, success_msg.value)
+        await mock_consumer.commit()
+        assert mock_consumer.commit.call_count == 1
+
+    # 2. Failed message -> handler raises, commit() NOT called for that message
+    mock_consumer.commit.reset_mock()
+    with patch("app.services.event_consumer.send_whatsapp_message", new_callable=AsyncMock) as mock_send:
+        mock_send.side_effect = ConnectionError("WhatsApp API Gateway timeout")
+        fail_msg = MockConsumerMsg(
+            topic=TOPIC_LEAD_EVENTS,
+            value={"eventId": f"evt_fail_{uuid.uuid4().hex}", "leadId": "l2", "isNewLead": True, "phone": "919380019642", "message": "Hi"},
+        )
+        with pytest.raises(ConnectionError):
+            await handler.dispatch_raw_event(fail_msg.topic, fail_msg.value)
+        # Verify offset was NOT committed on failure
+        assert mock_consumer.commit.call_count == 0

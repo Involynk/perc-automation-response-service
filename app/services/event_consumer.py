@@ -1,10 +1,12 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional
 
 from app.api.v1.endpoints.response import generate_response
 from app.core.config import settings
+from app.db.session import get_db_session
+from app.repositories.event_repository import ProcessedEventRepository
 from app.schemas.events import (
     FollowupActionRequiredPayload,
     FollowupSentEventPayload,
@@ -27,20 +29,37 @@ TOPIC_MEETING_EVENTS = "perc.meeting-events"
 class EventConsumerHandler:
     """
     Handles business logic and dispatch for inbound Kafka event topics.
-    Enforces eventId deduplication, routes to LangGraph and WhatsApp outbound client,
-    and publishes downstream lifecycle events.
+    Enforces cluster-wide durable PostgreSQL eventId deduplication across replica pods,
+    routes to LangGraph and WhatsApp outbound client, and publishes downstream lifecycle events.
     """
 
-    def __init__(self, producer: Optional[BaseEventProducer] = None, graph: Any = None):
+    def __init__(
+        self,
+        producer: Optional[BaseEventProducer] = None,
+        graph: Any = None,
+        event_repo: Optional[ProcessedEventRepository] = None,
+    ):
         self.producer = producer or get_event_producer_instance()
         self.graph = graph
-        self._processed_events: Set[str] = set()
+        self._event_repo = event_repo
+
+    def _get_repo(self) -> ProcessedEventRepository:
+        if self._event_repo is not None:
+            return self._event_repo
+        db = next(get_db_session())
+        return ProcessedEventRepository(db)
 
     def is_already_processed(self, event_id: str) -> bool:
-        return event_id in self._processed_events
+        """Check cluster-wide durable PostgreSQL table for event_id."""
+        return self._get_repo().is_already_processed(event_id)
 
-    def mark_as_processed(self, event_id: str):
-        self._processed_events.add(event_id)
+    def mark_as_processed(self, event_id: str, topic: str, lead_id: str):
+        """Record event_id in PostgreSQL table resp_processed_events."""
+        self._get_repo().record_processed_event(
+            event_id=event_id,
+            topic=topic,
+            lead_id=lead_id,
+        )
 
     async def handle_lead_event(self, payload: LeadEventPayload) -> Dict[str, Any]:
         """
@@ -79,7 +98,7 @@ class EventConsumerHandler:
                 logger.error(f"⚠️ Failed to deliver welcome WhatsApp message to {sender_phone}: {exc}")
                 raise exc
 
-            self.mark_as_processed(payload.eventId)
+            self.mark_as_processed(payload.eventId, topic=TOPIC_LEAD_EVENTS, lead_id=lead_id)
             return {"status": "welcome_sent", "leadId": lead_id, "eventId": payload.eventId}
 
         # 2. Subsequent Lead Message: Evaluate via LangGraph pipeline
@@ -103,7 +122,10 @@ class EventConsumerHandler:
 
         # 3. Check for Meeting Booking Intent
         text_lower = message_text.lower()
-        meeting_keywords = ("schedule", "book", "meeting", "counseling", "counselling", "appointment", "demo", "visit", "campus visit", "talk to counselor", "callback")
+        meeting_keywords = (
+            "schedule", "book", "meeting", "counseling", "counselling",
+            "appointment", "demo", "visit", "campus visit", "talk to counselor", "callback"
+        )
         has_meeting_intent = any(kw in text_lower for kw in meeting_keywords) or (payload.metadata.get("meeting_requested") is True)
 
         if has_meeting_intent:
@@ -134,7 +156,7 @@ class EventConsumerHandler:
             logger.error(f"⚠️ Failed to send AI response to {sender_phone}: {exc}")
             raise exc
 
-        self.mark_as_processed(payload.eventId)
+        self.mark_as_processed(payload.eventId, topic=TOPIC_LEAD_EVENTS, lead_id=lead_id)
         return {
             "status": "response_sent",
             "leadId": lead_id,
@@ -169,7 +191,7 @@ class EventConsumerHandler:
             logger.error(f"⚠️ Failed to deliver follow-up WhatsApp message to {sender_phone}: {exc}")
             raise exc
 
-        self.mark_as_processed(payload.eventId)
+        self.mark_as_processed(payload.eventId, topic=TOPIC_FOLLOWUP_ACTION_REQUIRED, lead_id=lead_id)
         return {"status": "followup_sent", "leadId": lead_id, "eventId": payload.eventId}
 
     async def handle_meeting_event(self, payload: MeetingEventPayload) -> Dict[str, Any]:
@@ -214,7 +236,7 @@ class EventConsumerHandler:
             logger.error(f"⚠️ Failed to deliver meeting confirmation WhatsApp message to {sender_phone}: {exc}")
             raise exc
 
-        self.mark_as_processed(payload.eventId)
+        self.mark_as_processed(payload.eventId, topic=TOPIC_MEETING_EVENTS, lead_id=lead_id)
         return {"status": "meeting_confirmation_sent", "leadId": lead_id, "eventId": payload.eventId}
 
     async def dispatch_raw_event(self, topic: str, raw_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -234,7 +256,11 @@ class EventConsumerHandler:
 
 
 class KafkaEventConsumerService:
-    """Production background Kafka consumer worker."""
+    """
+    Production background Kafka consumer worker.
+    Configured with enable_auto_commit=False to enforce strict at-least-once
+    processing and explicit offset commit only AFTER business operations succeed.
+    """
 
     def __init__(self, handler: Optional[EventConsumerHandler] = None):
         self.handler = handler or EventConsumerHandler()
@@ -257,17 +283,21 @@ class KafkaEventConsumerService:
                 bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
                 group_id=settings.KAFKA_CONSUMER_GROUP_ID,
                 value_deserializer=lambda v: json.loads(v.decode("utf-8")),
-                enable_auto_commit=True,
+                enable_auto_commit=False,  # Enforce manual offset commits
             )
             await self._consumer.start()
             self.running = True
             self._task = asyncio.create_task(self._consume_loop())
-            logger.info(f"✅ Kafka consumer group '{settings.KAFKA_CONSUMER_GROUP_ID}' started on {settings.KAFKA_BOOTSTRAP_SERVERS}")
+            logger.info(f"✅ Kafka consumer group '{settings.KAFKA_CONSUMER_GROUP_ID}' started (enable_auto_commit=False)")
         except Exception as exc:
             logger.error(f"❌ Failed to start Kafka consumer service: {exc}", exc_info=True)
 
     async def _consume_loop(self):
-        """Main consumption loop with dead-letter / error isolation."""
+        """
+        Main consumption loop.
+        Exact Offset Commit Boundary: Offset is committed only AFTER event processing,
+        outbound delivery, downstream event emission, and DB persistence complete.
+        """
         while self.running and self._consumer:
             try:
                 async for msg in self._consumer:
@@ -276,9 +306,17 @@ class KafkaEventConsumerService:
                     topic = msg.topic
                     value = msg.value
                     try:
+                        # 1. Execute business logic & durable DB persistence
                         await self.handler.dispatch_raw_event(topic, value)
+                        # 2. Exact offset commit boundary: Commit only AFTER successful operation
+                        await self._consumer.commit()
                     except Exception as handle_err:
-                        logger.error(f"❌ Error processing event from {topic} (key={msg.key}): {handle_err}", exc_info=True)
+                        logger.error(
+                            f"❌ Error processing event from {topic} (key={msg.key}, offset={msg.offset}): {handle_err}. "
+                            "Offset NOT committed.",
+                            exc_info=True,
+                        )
+                        # Do NOT commit offset on failure! Allows redelivery on restart or retry.
             except asyncio.CancelledError:
                 break
             except Exception as poll_err:

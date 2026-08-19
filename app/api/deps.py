@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.agent.graph import build_response_graph
 from app.core.config import settings
 from app.db.session import get_db_session
+from app.repositories.event_repository import ProcessedEventRepository
 from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
 from app.services.event_producer import BaseEventProducer, get_event_producer_instance
 
@@ -27,6 +28,13 @@ def get_whatsapp_repo(
 ) -> WhatsAppMessageRepository:
     """Dependency provider for WhatsAppMessageRepository."""
     return WhatsAppMessageRepository(db)
+
+
+def get_event_repo(
+    db: Session = Depends(get_db_session),
+) -> ProcessedEventRepository:
+    """Dependency provider for ProcessedEventRepository."""
+    return ProcessedEventRepository(db)
 
 
 def get_event_producer() -> BaseEventProducer:

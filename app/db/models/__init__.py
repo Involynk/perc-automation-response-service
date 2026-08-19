@@ -6,6 +6,7 @@ from app.db.models.availability import AvailabilityInfoModel
 from app.db.models.admission_status import AdmissionStatusModel
 from app.db.models.knowledge_chunk import KnowledgeChunkModel
 from app.db.models.whatsapp_message import ProcessedWhatsAppMessageModel
+from app.db.models.processed_event import ProcessedEventModel
 
 __all__ = [
     "CourseModel",
@@ -18,4 +19,5 @@ __all__ = [
     "AdmissionStatusModel",
     "KnowledgeChunkModel",
     "ProcessedWhatsAppMessageModel",
+    "ProcessedEventModel",
 ]

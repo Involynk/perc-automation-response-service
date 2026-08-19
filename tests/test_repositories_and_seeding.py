@@ -104,3 +104,29 @@ def test_not_found_behavior(db_session):
     assert service.get_branch_by_id("non-existent-branch") is None
     assert service.get_program_fee("non-existent-fee") is None
     assert service.get_program_eligibility("non-existent-prog") is None
+
+
+def test_processed_event_repository_idempotency_and_concurrency(db_session):
+    """Test durable PostgreSQL Kafka eventId persistence and duplicate conflict handling."""
+    from app.repositories.event_repository import ProcessedEventRepository
+
+    repo = ProcessedEventRepository(db_session)
+    event_id = "evt_repo_test_001"
+
+    # 1. First check -> Not processed
+    assert repo.is_already_processed(event_id) is False
+
+    # 2. Record first event -> Success
+    record = repo.record_processed_event(event_id=event_id, topic="perc.lead-events", lead_id="lead_101")
+    assert record is not None
+    assert record.event_id == event_id
+    assert record.topic == "perc.lead-events"
+    assert record.lead_id == "lead_101"
+
+    # 3. Second check -> Already processed
+    assert repo.is_already_processed(event_id) is True
+
+    # 4. Duplicate insert -> Handled gracefully without raising, returns None
+    dup_record = repo.record_processed_event(event_id=event_id, topic="perc.lead-events", lead_id="lead_101")
+    assert dup_record is None
+
