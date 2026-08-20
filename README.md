@@ -18,15 +18,11 @@ The service combines **authoritative PostgreSQL relational database tools** with
 6. [Query Understanding (C1–C18)](#6-query-understanding-c1c18)
 7. [Deterministic Routing Logic](#7-deterministic-routing-logic)
 8. [Structured Data Layer & Tools](#8-structured-data-layer--tools)
-9. [RAG Knowledge Layer & Authority Rules](#9-rag-knowledge-layer--authority-rules)
-10. [Result Check & Evidence Verification](#10-result-check--evidence-verification)
-11. [Draft Validation & Safety Guardrails](#11-draft-validation--safety-guardrails)
-12. [FastAPI API Specifications](#12-fastapi-api-specifications)
-13. [Configuration & Environment Modes](#13-configuration--environment-modes)
-14. [Local Development & Operations](#14-local-development--operations)
-15. [Testing & Verification](#15-testing--verification)
-16. [Production Deployment Checklist](#16-production-deployment-checklist)
-17. [Project Directory Layout](#17-project-directory-layout)
+9. [FastAPI API Specifications](#9-fastapi-api-specifications)
+10. [Internal Service Authentication](#10-internal-service-authentication)
+11. [Local Development & Operations](#11-local-development--operations)
+12. [Testing & Verification](#12-testing--verification)
+13. [Production Deployment Checklist](#13-production-deployment-checklist)
 
 ---
 
@@ -53,6 +49,7 @@ Student Enquiry / Client Application
               ▼
 ┌────────────────────────────────────────────────────────┐
 │ FastAPI Web Service (POST /api/v1/response)            │
+│ 🔒 Protected by X-Internal-API-Key                     │
 └───────────────────────────┬────────────────────────────┘
                             │
                             ▼
@@ -187,6 +184,7 @@ The compiled `StateGraph` in `app/agent/graph.py` executes 8 discrete, sequentia
 ```http
 POST /api/v1/response
 Content-Type: application/json
+X-Internal-API-Key: <INTERNAL_SERVICE_API_KEY>
 
 {
   "session_id": "student_001",
@@ -212,7 +210,36 @@ Content-Type: application/json
 
 ---
 
-## 9. Local Development & Operations
+## 9. Internal Service Authentication
+
+PERC internal microservices calling the Response Service must authenticate by providing the HTTP header:
+
+```http
+X-Internal-API-Key: <secret>
+```
+
+### Security Configuration
+- The secret key is loaded from the environment variable:
+  ```ini
+  INTERNAL_SERVICE_API_KEY=<secret>
+  ```
+- **Protected Endpoints**:
+  - `POST /api/v1/response` (and `/response`)
+  - `POST /api/v1/responses/send-whatsapp`
+  - `POST /api/v1/responses/send-whatsapp-template`
+- **Public & Webhook Endpoints**:
+  - `GET /health` remains unauthenticated for infrastructure health/liveness probes.
+  - `GET /webhook` & `POST /webhook` remain under separate Meta HMAC-SHA256 signature verification.
+- **Header Verification Rules**:
+  - Missing header → `401 Unauthorized`
+  - Invalid key → `403 Forbidden`
+  - Correct key → Request allowed
+  - Evaluated using constant-time comparison (`hmac.compare_digest`).
+- **Production Key Management**: The value must be supplied strictly through environment variables, Kubernetes Secrets, or cloud deployment secret managers and **must never be committed to source control**.
+
+---
+
+## 10. Local Development & Operations
 
 ### 1. Install Dependencies
 ```bash
@@ -228,6 +255,7 @@ pip install -r requirements.txt
 ### 2. Configure Environment (`.env`)
 ```ini
 DATABASE_URL=postgresql+psycopg://postgres:<PASSWORD>@<HOST>:5432/<DB>
+INTERNAL_SERVICE_API_KEY=<local-secret-to-be-set>
 QUERY_UNDERSTANDING_PROVIDER=hybrid
 LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434
@@ -235,20 +263,14 @@ OLLAMA_MODEL=qwen3:8b
 OLLAMA_TIMEOUT=15
 ```
 
-### 3. Run Automated Tests
-```bash
-# Run complete deterministic test suite (192 tests)
-pytest -q -m "not live"
-```
-
-### 4. Start FastAPI Server
+### 3. Start FastAPI Server
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-## 10. Testing & Verification
+## 11. Testing & Verification
 
 - **Automated Pytest Suite**: **192 passed**, 0 failures, 0 warnings.
 - **Coverage**:
@@ -258,9 +280,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## 11. Production Deployment Checklist
+## 12. Production Deployment Checklist
 
-1. **Container Security**: Runs under dedicated non-root user `appuser` (UID 10001).
-2. **Database Pooling**: Supabase connection recycling (`pool_recycle=1800`) and liveness checks (`pool_pre_ping=True`) active.
-3. **Stateless Microservice**: No Kafka dependencies, no in-memory state, fully horizontally scalable behind any load balancer.
-4. **Resilient AI Pipeline**: Deterministic fallbacks ensure 100% API availability even if the external LLM is cold or unreachable.
+1. **Internal Service Authentication**: Set `INTERNAL_SERVICE_API_KEY` in production container/deployment environment.
+2. **Container Security**: Runs under dedicated non-root user `appuser` (UID 10001).
+3. **Database Pooling**: Supabase connection recycling (`pool_recycle=1800`) and liveness checks (`pool_pre_ping=True`) active.
+4. **Stateless Microservice**: No Kafka dependencies, no in-memory state, fully horizontally scalable behind any load balancer.
+5. **Resilient AI Pipeline**: Deterministic fallbacks ensure 100% API availability even if the external LLM is cold or unreachable.
