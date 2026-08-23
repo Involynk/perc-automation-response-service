@@ -9,7 +9,7 @@ from app.agent.graph import build_response_graph
 from app.core.config import settings
 from app.db.session import get_db_session
 from app.repositories.event_repository import ProcessedEventRepository
-from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
+from app.repositories.conversation_history_repository import ConversationHistoryRepository
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,11 @@ def get_response_graph() -> Any:
     return build_response_graph()
 
 
-def get_whatsapp_repo(
+def get_conversation_history_repo(
     db: Session = Depends(get_db_session),
-) -> WhatsAppMessageRepository:
-    """Dependency provider for WhatsAppMessageRepository."""
-    return WhatsAppMessageRepository(db)
+) -> ConversationHistoryRepository:
+    """Dependency provider for ConversationHistoryRepository."""
+    return ConversationHistoryRepository(db)
 
 
 def get_event_repo(

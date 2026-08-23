@@ -17,6 +17,9 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen3:8b}
       - OLLAMA_TIMEOUT=${OLLAMA_TIMEOUT:-180}
+      - KAFKA_BOOTSTRAP_SERVERS=${KAFKA_BOOTSTRAP_SERVERS:-localhost:9092}
+      - KAFKA_CLIENT_ID=${KAFKA_CLIENT_ID:-perc-response-service}
+      - KAFKA_GROUP_ID=${KAFKA_GROUP_ID:-perc-response-service-group}
     depends_on:
       postgres:
         condition: service_healthy

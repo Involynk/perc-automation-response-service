@@ -31,7 +31,7 @@ class OllamaLLMClient(BaseLLMClient):
         # Bounded practical timeout (default 15 seconds)
         self.timeout = timeout or getattr(settings, "OLLAMA_TIMEOUT", 15) or 15
 
-    def _generate_url() -> str:
+    def _generate_url(self) -> str:
         return self.base_url.rstrip("/") + "/api/generate"
 
     def generate(self, prompt: str) -> str:

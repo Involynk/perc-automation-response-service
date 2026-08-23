@@ -9,12 +9,14 @@ import httpx
 from app.api.deps import (
     get_response_graph,
     get_whatsapp_repo,
+    get_conversation_history_repo,
     verify_internal_api_key,
     verify_meta_signature,
 )
 from app.api.v1.endpoints.response import generate_response
 from app.core.config import settings
 from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
+from app.repositories.conversation_history_repository import ConversationHistoryRepository
 from app.schemas.request import ResponseRequest
 from app.schemas.whatsapp_webhook import MetaWebhookPayload
 from app.services.whatsapp_service import clean_phone_number, send_whatsapp_message, send_whatsapp_template
@@ -134,12 +136,12 @@ async def verify_webhook(
 async def receive_webhook(
     raw_body: bytes = Depends(verify_meta_signature),
     graph: Any = Depends(get_response_graph),
-    repo: WhatsAppMessageRepository = Depends(get_whatsapp_repo),
+    conv_repo: ConversationHistoryRepository = Depends(get_conversation_history_repo),
 ) -> Dict[str, Any]:
     """
     Receive incoming Meta WhatsApp webhook events (dev / direct webhook mode).
     Enforces HMAC-SHA256 signature verification, typed payload validation,
-    and durable PostgreSQL message idempotency.
+    and durable PostgreSQL conversation history logging.
     """
     # 1. Parse and validate webhook payload using typed Pydantic models
     try:
@@ -168,29 +170,10 @@ async def receive_webhook(
                 for msg in value.messages:
                     sender = msg.from_
                     msg_type = msg.type
-                    msg_id = msg.id
-
-                    # 3. Idempotency Check: Prevent duplicate processing of the same Meta wamid
-                    if repo.is_already_processed(msg_id):
-                        logger.info(f"🔁 Duplicate WhatsApp message detected: {msg_id}. Skipping processing.")
-                        processed_messages.append({
-                            "wamid": msg_id,
-                            "sender": sender,
-                            "status": "duplicate_skipped",
-                        })
-                        continue
-
-                    # 4. Handle Unsupported message types gracefully
+                    # Handle Unsupported message types gracefully
                     if msg_type != "text" or not msg.text:
                         logger.warning(
                             f"⚠️ Unsupported WhatsApp message type '{msg_type}' from {sender} (wamid={msg_id})."
-                        )
-                        repo.record_processed_message(
-                            wamid=msg_id,
-                            sender_phone=sender,
-                            message_type=msg_type,
-                            message_body=None,
-                            status="UNSUPPORTED",
                         )
                         processed_messages.append({
                             "wamid": msg_id,
@@ -241,16 +224,19 @@ async def receive_webhook(
                         send_error = str(err)
                         logger.error(f"⚠️ Failed to send outbound WhatsApp reply to {sender}: {err}", exc_info=True)
 
-                    # 7. Record durable idempotency state in PostgreSQL
-                    repo.record_processed_message(
-                        wamid=msg_id,
-                        sender_phone=sender,
-                        message_type="text",
+                    # Store in centralized 'conversations' table
+                    conv_repo.add_message(
+                        lead_id=sender,
+                        direction="inbound",
                         message_body=text_body,
-                        status="PROCESSED" if not send_error else "FAILED",
-                        response_intent=intent_str,
-                        outbound_wamid=outbound_wamid,
-                        error_message=send_error,
+                        wamid=msg_id,
+                    )
+                    conv_repo.add_message(
+                        lead_id=sender,
+                        direction="outbound",
+                        message_body=generated_answer,
+                        wamid=outbound_wamid,
+                        intent=intent_str,
                     )
 
                     processed_messages.append({

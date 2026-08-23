@@ -11,6 +11,7 @@ from app.core.config import settings
 from .query_understanding import QueryUnderstandingProvider, MockDataProvider
 from .llm_query_provider import LLMQueryProvider, BaseLLMClient
 from .ollama_client import OllamaLLMClient, OllamaError
+from .groq_client import GroqClient, GroqError
 
 logger = logging.getLogger(__name__)
 
@@ -312,7 +313,15 @@ class HybridQueryUnderstandingProvider(QueryUnderstandingProvider):
     def _get_llm_provider(self) -> Optional[LLMQueryProvider]:
         if self.llm_client is not None:
             return LLMQueryProvider(client=self.llm_client)
-        if (settings.LLM_PROVIDER or "").lower() == "ollama":
+        provider = (settings.LLM_PROVIDER or "groq").lower()
+        if provider == "groq":
+            try:
+                client = GroqClient()
+                return LLMQueryProvider(client=client)
+            except Exception as exc:
+                logger.warning(f"Could not initialize Groq client: {exc}")
+                return None
+        elif provider == "ollama":
             try:
                 client = OllamaLLMClient()
                 return LLMQueryProvider(client=client)
@@ -332,11 +341,11 @@ class HybridQueryUnderstandingProvider(QueryUnderstandingProvider):
             llm_provider = self._get_llm_provider()
             if llm_provider is not None:
                 try:
-                    logger.info(f"🧠 [LLM QUERY UNDERSTANDING] Invoking Ollama for query: \"{query}\"")
+                    logger.info(f"🧠 [LLM QUERY UNDERSTANDING] Invoking LLM for query: \"{query}\"")
                     result = llm_provider.analyze(query, context)
-                    result["classified_by"] = "ollama_llm"
+                    result["classified_by"] = f"{settings.LLM_PROVIDER}_llm"
                     return result
-                except (OllamaError, Exception) as exc:
+                except (GroqError, OllamaError, Exception) as exc:
                     logger.warning(f"⚠️ LLM Query Understanding failed or timed out ({exc}). Falling back to rule engine.")
 
         fallback_result = self.mock_provider.analyze(query, context)

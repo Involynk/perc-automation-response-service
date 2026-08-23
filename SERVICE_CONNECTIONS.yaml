@@ -1,31 +1,149 @@
 # SERVICE_CONNECTIONS.yaml — response-service
-# Aligned with the PERC Hybrid Response Service Architecture (FastAPI + LangGraph + Structured DB / RAG + Ollama Qwen3 8B)
+# Complete Specification: REST APIs + Event Stream Topology (Redis Streams & Kafka)
 
 service: response-service
 description: >
-  Intelligent AI Response Service for PERC educational institute queries.
+  Intelligent AI Conversation & Outbound Message Delivery Engine for PERC educational institute queries.
   Combines Structured Database (exact facts for courses, fees, branches, eligibility, admission)
   and RAG (pgvector for policies, FAQs, brochures) powered by LangGraph, FastAPI, and Ollama (Qwen3 8B).
-  Redis Streams is used for service events and audit logs.
+  Authorized for synchronous student query resolution and direct Meta WhatsApp Cloud API message delivery.
 
-primary_api:
-  endpoint: POST /api/v1/response
-  auth: X-Internal-API-Key
-  description: Core synchronous question-answering endpoint for student inquiries.
-  request_schema:
-    session_id: string
-    message: string
-    metadata: object
-  response_schema:
-    session_id: string
-    answer: string
-    status: string
-    intent: string
-    sources: array
-    clarification_required: boolean
-    clarification_question: string | null
+# ==============================================================================
+# Synchronous REST API Contracts
+# ==============================================================================
+apis:
+  primary_query_api:
+    endpoint: POST /api/v1/response
+    auth: X-Internal-API-Key
+    description: Core synchronous question-answering endpoint executing the 8-node LangGraph pipeline.
+    request_schema:
+      session_id: string          # Required, e.g. "whatsapp_919876543210"
+      message: string             # Required, student enquiry text
+      metadata: object            # Optional, e.g. { "channel": "whatsapp", "lead_id": "lead_001" }
+    response_schema:
+      session_id: string
+      answer: string              # Generated answer or escalation message
+      status: "success | clarification_required | escalated | error"
+      intent: string              # e.g. "fees_pricing", "course_details", "eligibility"
+      sources: array              # Array of source references/files used
+      clarification_required: boolean
+      clarification_question: string | null
 
+  whatsapp_outbound_api:
+    endpoint: POST /api/v1/send-whatsapp
+    auth: X-Internal-API-Key
+    description: Sends a direct outbound WhatsApp message via Meta Cloud API.
+    request_schema:
+      phone: string               # Recipient phone with country code (e.g. 919876543210)
+      message: string             # Text message body
+      lead_id: string | null      # Optional lead identifier
+      is_followup: boolean        # Flag indicating if this is a follow-up message
+    response_schema:
+      success: boolean
+      message: string
+      meta_response: object
+
+  whatsapp_template_api:
+    endpoint: POST /api/v1/send-whatsapp-template
+    auth: X-Internal-API-Key
+    description: Sends an approved pre-template WhatsApp message.
+    request_schema:
+      phone: string               # Recipient phone number
+      template_name: string       # Approved template name (default: "hello_world")
+      language_code: string       # e.g. "en_US"
+      lead_id: string | null
+    response_schema:
+      success: boolean
+      message: string
+      meta_response: object
+
+  meta_webhook_api:
+    endpoint: GET /webhook & POST /webhook
+    auth: HMAC SHA-256 (X-Hub-Signature-256) / hub.verify_token
+    description: Receives inbound WhatsApp webhook events directly from Meta. Handles deduplication and idempotency.
+
+# ==============================================================================
+# Asynchronous Event Stream & Messaging Topology
+# ==============================================================================
 event_stream:
   provider: redis_streams
   stream_key: perc:events:response-service
   description: Publishes query evaluation logs, audit entries, and service events to Redis Streams.
+
+subscribes_to:
+  - topic: perc.lead-events
+    from_service: lead-capture-service
+    filter: "isNewLead === true"
+    action: "Sends initial welcome message and analyzes conversation with AI"
+
+  - topic: perc.lead-events
+    from_service: lead-capture-service
+    filter: "isNewLead === false"
+    action: >
+      AI Engine evaluates lead's new message and conversation history. If meeting booking intent is detected,
+      emits perc.meeting.create-requested to meeting-service. Otherwise, generates and sends conversational reply.
+
+  - topic: perc.followup.action-required
+    from_service: followup-service
+    filter: none
+    action: "Formulates and delivers context-aware follow-up re-engagement message to lead"
+
+  - topic: perc.meeting-events
+    from_service: meeting-service
+    filter: "event === 'meeting.booked'"
+    action: "Delivers WhatsApp meeting confirmation to lead containing scheduledAt and generated meetingLink"
+
+produces:
+  - topic: perc.response.sent
+    event: response.sent
+    kafka_key: leadId
+    payload_schema:
+      eventId: string
+      leadId: string
+      correlationId: string       # Same as leadId — Kafka partition key
+      responseType: "general_reply | welcome"
+      channel: string
+      sentAt: string              # ISO 8601
+    subscribers:
+      - service: scheduler-service
+        filter: none
+        action: "Creates or resets the 2-hour follow-up inactivity countdown timer for this lead"
+      - service: timeline-service
+        filter: none
+        action: "Logs RESPONSE_SENT audit entry in lead's journey timeline"
+      - service: analytics-service
+        filter: none
+        action: "Tracks response time, interactive engagement, and delivery rate metrics"
+
+  - topic: perc.followup.sent
+    event: followup.sent
+    kafka_key: leadId
+    payload_schema:
+      eventId: string
+      leadId: string
+      channel: string
+      sentAt: string              # ISO 8601
+    subscribers:
+      - service: scheduler-service
+        filter: none
+        action: "Resets 2-hour inactivity timer for next follow-up cycle"
+      - service: timeline-service
+        filter: none
+        action: "Logs FOLLOWUP_SENT audit entry in lead's journey timeline"
+      - service: analytics-service
+        filter: none
+        action: "Tracks follow-up re-engagement conversion rates and delivery metrics"
+
+  - topic: perc.meeting.create-requested
+    event: meeting.create.requested
+    kafka_key: leadId
+    payload_schema:
+      eventId: string
+      leadId: string
+      channel: string
+      requestedByMessage: string
+      requestedAt: string
+    subscribers:
+      - service: meeting-service
+        filter: none
+        action: "Creates meeting record in DB, generates video conference link (Google Meet / Jitsi), emits meeting.booked"

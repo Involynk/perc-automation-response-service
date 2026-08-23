@@ -3,11 +3,16 @@ from fastapi import FastAPI
 from app.api.v1.router import api_router
 
 
+from app.events.kafka_manager import kafka_manager
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Application startup lifecycle
+    await kafka_manager.start()
     yield
     # Application shutdown lifecycle
+    await kafka_manager.stop()
 
 
 app = FastAPI(
