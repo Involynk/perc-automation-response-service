@@ -8,14 +8,12 @@ import httpx
 
 from app.api.deps import (
     get_response_graph,
-    get_whatsapp_repo,
     get_conversation_history_repo,
     verify_internal_api_key,
     verify_meta_signature,
 )
 from app.api.v1.endpoints.response import generate_response
 from app.core.config import settings
-from app.repositories.whatsapp_message_repository import WhatsAppMessageRepository
 from app.repositories.conversation_history_repository import ConversationHistoryRepository
 from app.schemas.request import ResponseRequest
 from app.schemas.whatsapp_webhook import MetaWebhookPayload
