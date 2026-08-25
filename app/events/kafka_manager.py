@@ -233,7 +233,7 @@ class ResponseKafkaManager:
             # Deliver response via WhatsApp if Meta Cloud API configured
             if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
                 ws = WhatsAppService()
-                ws.send_text_message(to_phone=phone, message=res.answer)
+                await ws.send_text_message(to_phone=phone, message=res.answer)
 
             # Record outbound AI response in history with proper sequence number
             repo.add_message(
@@ -270,7 +270,7 @@ class ResponseKafkaManager:
 
             if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
                 ws = WhatsAppService()
-                ws.send_text_message(to_phone=phone, message=res.answer)
+                await ws.send_text_message(to_phone=phone, message=res.answer)
 
             repo = ConversationHistoryRepository(db)
             repo.add_message(
@@ -309,7 +309,7 @@ class ResponseKafkaManager:
             phone = lead_id.replace("lead_", "").replace("whatsapp_", "")
             if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
                 ws = WhatsAppService()
-                ws.send_text_message(to_phone=phone, message=confirmation_msg)
+                await ws.send_text_message(to_phone=phone, message=confirmation_msg)
 
             repo = ConversationHistoryRepository(db)
             repo.add_message(

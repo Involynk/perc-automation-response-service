@@ -115,3 +115,48 @@ async def send_whatsapp_template(
         response.raise_for_status()
 
     return response.json()
+
+
+class WhatsAppService:
+    """WhatsApp service wrapper class for sending messages."""
+
+    def __init__(
+        self,
+        meta_access_token: Optional[str] = None,
+        phone_number_id: Optional[str] = None,
+        api_version: Optional[str] = None,
+    ):
+        """Initialize WhatsApp service with optional credentials."""
+        self.meta_access_token = meta_access_token
+        self.phone_number_id = phone_number_id
+        self.api_version = api_version
+
+    async def send_text_message(
+        self,
+        to_phone: str,
+        message: str,
+    ) -> Dict[str, Any]:
+        """Send a text message via WhatsApp."""
+        return await send_whatsapp_message(
+            recipient_phone=to_phone,
+            message=message,
+            meta_access_token=self.meta_access_token,
+            phone_number_id=self.phone_number_id,
+            api_version=self.api_version,
+        )
+
+    async def send_template_message(
+        self,
+        to_phone: str,
+        template_name: str = "hello_world",
+        language_code: str = "en_US",
+    ) -> Dict[str, Any]:
+        """Send a template message via WhatsApp."""
+        return await send_whatsapp_template(
+            recipient_phone=to_phone,
+            template_name=template_name,
+            language_code=language_code,
+            meta_access_token=self.meta_access_token,
+            phone_number_id=self.phone_number_id,
+            api_version=self.api_version,
+        )
