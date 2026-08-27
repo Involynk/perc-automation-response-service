@@ -229,7 +229,15 @@ class ResponseKafkaManager:
 
             # Store both inbound message (if new) and outbound reply into centralized conversation history
             repo = ConversationHistoryRepository(db)
-            phone = lead_id.replace("lead_", "").replace("whatsapp_", "")
+            phone = payload.get("sourceReferenceId")
+
+            if not phone:
+                raise ValueError("sourceReferenceId is missing from lead event")
+
+            phone = phone.strip()
+
+            if not phone.startswith("+"):
+                phone = f"+{phone}"
 
             # Record inbound message in history
             await asyncio.to_thread(
@@ -276,7 +284,15 @@ class ResponseKafkaManager:
             )
             graph = get_response_graph()
             res = await asyncio.to_thread(generate_response, req, graph=graph)
-            phone = lead_id.replace("lead_", "").replace("whatsapp_", "")
+            phone = payload.get("sourceReferenceId")
+
+            if not phone:
+                raise ValueError("sourceReferenceId is missing from follow-up event")
+
+            phone = phone.strip()
+
+            if not phone.startswith("+"):
+                phone = f"+{phone}"
 
             if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
                 ws = WhatsAppService()
@@ -315,7 +331,15 @@ class ResponseKafkaManager:
 
         db = SessionLocal()
         try:
-            phone = lead_id.replace("lead_", "").replace("whatsapp_", "")
+            phone = payload.get("sourceReferenceId")
+
+            if not phone:
+                raise ValueError("sourceReferenceId is missing from meeting event")
+
+            phone = phone.strip()
+
+            if not phone.startswith("+"):
+                phone = f"+{phone}"
             if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
                 ws = WhatsAppService()
                 await ws.send_text_message(to_phone=phone, message=confirmation_msg)
