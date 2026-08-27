@@ -6,6 +6,7 @@ from datetime import datetime
 
 from app.core.config import settings
 from app.db.session import SessionLocal
+from app.api.deps import get_response_graph
 from app.api.v1.endpoints.response import generate_response
 from app.schemas.request import ResponseRequest
 from app.schemas.agent import QueryIntent
@@ -213,8 +214,9 @@ class ResponseKafkaManager:
                 message=latest_message,
                 metadata={"lead_id": lead_id, "channel": channel, "is_new_lead": is_new_lead},
             )
+            graph = get_response_graph()
             # Run AI pipeline in thread pool to prevent blocking asyncio event loop & Kafka heartbeats
-            res = await asyncio.to_thread(generate_response, req, db=db)
+            res = await asyncio.to_thread(generate_response, req, graph=graph)
 
             # Check if meeting booking intent was detected
             meeting_keywords = ["book", "schedule", "meeting", "demo", "call", "appointment", "slot"]
@@ -276,7 +278,8 @@ class ResponseKafkaManager:
                 message="Send follow-up re-engagement information regarding PERC programs.",
                 metadata={"lead_id": lead_id, "channel": channel, "is_followup": True},
             )
-            res = await asyncio.to_thread(generate_response, req, db=db)
+            graph = get_response_graph()
+            res = await asyncio.to_thread(generate_response, req, graph=graph)
             phone = lead_id.replace("lead_", "").replace("whatsapp_", "")
 
             if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
