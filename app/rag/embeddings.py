@@ -105,7 +105,15 @@ def get_embedding_provider(provider_type: Optional[str] = None) -> EmbeddingProv
     if provider_type in ("mock", "testing"):
         return DeterministicMockEmbeddingProvider(dim=384)
     if provider_type in ("sentence-transformers", "production", None):
-        return SentenceTransformerEmbeddingProvider(model_name="all-MiniLM-L6-v2")
+        try:
+            return SentenceTransformerEmbeddingProvider(model_name="all-MiniLM-L6-v2")
+        except (ImportError, Exception) as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"sentence-transformers not available ({exc}). Falling back to DeterministicMockEmbeddingProvider."
+            )
+            return DeterministicMockEmbeddingProvider(dim=384)
     raise ValueError(
         f"Unknown embedding provider '{provider_type}'. Must be 'sentence-transformers' or 'mock'."
     )
+
