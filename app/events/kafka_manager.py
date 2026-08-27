@@ -54,6 +54,12 @@ class ResponseKafkaManager:
         kafka_kwargs: Dict[str, Any] = {}
         if settings.KAFKA_USE_SSL or (settings.KAFKA_SASL_MECHANISM and settings.KAFKA_SASL_USERNAME):
             kafka_kwargs["security_protocol"] = "SASL_SSL" if settings.KAFKA_USE_SSL else "SASL_PLAINTEXT"
+            if settings.KAFKA_USE_SSL:
+                import ssl
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                kafka_kwargs["ssl_context"] = ssl_context
             if settings.KAFKA_SASL_MECHANISM:
                 kafka_kwargs["sasl_mechanism"] = settings.KAFKA_SASL_MECHANISM
             if settings.KAFKA_SASL_USERNAME:
