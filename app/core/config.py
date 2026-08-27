@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     LLM_MODEL: str | None = "llama-3.3-70b-versatile"
     LLM_TEMPERATURE: float | None = 0.0
     LLM_TIMEOUT: int | None = 30
+    QUERY_UNDERSTANDING_PROVIDER: str | None = None
+    OLLAMA_BASE_URL: str | None = "http://localhost:11434"
+    OLLAMA_MODEL: str | None = "qwen3:8b"
+    OLLAMA_TIMEOUT: int | None = 15
+
 
     # Meta WhatsApp Cloud API configuration (optional / direct outbound)
     META_ACCESS_TOKEN: str | None = None

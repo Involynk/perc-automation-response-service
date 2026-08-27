@@ -29,6 +29,14 @@ def get_conversation_history_repo(
     return ConversationHistoryRepository(db)
 
 
+def get_whatsapp_repo(
+    db: Session = Depends(get_db_session),
+) -> ConversationHistoryRepository:
+    """Dependency provider alias for WhatsApp/Conversation repository."""
+    return ConversationHistoryRepository(db)
+
+
+
 def get_event_repo(
     db: Session = Depends(get_db_session),
 ) -> ProcessedEventRepository:
