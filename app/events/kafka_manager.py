@@ -308,7 +308,9 @@ class ResponseKafkaManager:
                 intent=str(res.intent) if res.intent else "C12_FOLLOW_UP_CONTEXTUAL",
             )
 
-            await self.publish_followup_sent(lead_id=lead_id, channel=channel)
+            await self.publish_response_sent(
+                lead_id=lead_id, channel=channel, response_type="followup"
+            )
         finally:
             db.close()
 
