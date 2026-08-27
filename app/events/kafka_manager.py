@@ -237,9 +237,7 @@ class ResponseKafkaManager:
                 lead_id=lead_id,
                 direction="inbound",
                 message_body=latest_message,
-                sender_phone=phone,
-                recipient_phone="PERC_SYSTEM",
-                status="RECEIVED",
+                channel=channel,
             )
 
             # Deliver response via WhatsApp if Meta Cloud API configured
@@ -253,9 +251,7 @@ class ResponseKafkaManager:
                 lead_id=lead_id,
                 direction="outbound",
                 message_body=res.answer,
-                sender_phone="PERC_SYSTEM",
-                recipient_phone=phone,
-                status="SENT",
+                channel=channel,
                 intent=str(res.intent) if res.intent else None,
             )
 
@@ -292,9 +288,7 @@ class ResponseKafkaManager:
                 lead_id=lead_id,
                 direction="outbound",
                 message_body=res.answer,
-                sender_phone="PERC_SYSTEM",
-                recipient_phone=phone,
-                status="SENT",
+                channel=channel,
                 intent=str(res.intent) if res.intent else "C12_FOLLOW_UP_CONTEXTUAL",
             )
 
@@ -332,9 +326,7 @@ class ResponseKafkaManager:
                 lead_id=lead_id,
                 direction="outbound",
                 message_body=confirmation_msg,
-                sender_phone="PERC_SYSTEM",
-                recipient_phone=phone,
-                status="SENT",
+                channel=channel,
                 intent="MEETING_CONFIRMATION",
             )
 
