@@ -213,8 +213,8 @@ class ResponseKafkaManager:
                 message=latest_message,
                 metadata={"lead_id": lead_id, "channel": channel, "is_new_lead": is_new_lead},
             )
-            # Run AI pipeline
-            res = generate_response(req, db=db)
+            # Run AI pipeline in thread pool to prevent blocking asyncio event loop & Kafka heartbeats
+            res = await asyncio.to_thread(generate_response, req, db=db)
 
             # Check if meeting booking intent was detected
             meeting_keywords = ["book", "schedule", "meeting", "demo", "call", "appointment", "slot"]
@@ -230,7 +230,8 @@ class ResponseKafkaManager:
             phone = lead_id.replace("lead_", "").replace("whatsapp_", "")
 
             # Record inbound message in history
-            repo.add_message(
+            await asyncio.to_thread(
+                repo.add_message,
                 lead_id=lead_id,
                 direction="inbound",
                 message_body=latest_message,
@@ -245,7 +246,8 @@ class ResponseKafkaManager:
                 await ws.send_text_message(to_phone=phone, message=res.answer)
 
             # Record outbound AI response in history with proper sequence number
-            repo.add_message(
+            await asyncio.to_thread(
+                repo.add_message,
                 lead_id=lead_id,
                 direction="outbound",
                 message_body=res.answer,
@@ -274,7 +276,7 @@ class ResponseKafkaManager:
                 message="Send follow-up re-engagement information regarding PERC programs.",
                 metadata={"lead_id": lead_id, "channel": channel, "is_followup": True},
             )
-            res = generate_response(req, db=db)
+            res = await asyncio.to_thread(generate_response, req, db=db)
             phone = lead_id.replace("lead_", "").replace("whatsapp_", "")
 
             if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
@@ -282,7 +284,8 @@ class ResponseKafkaManager:
                 await ws.send_text_message(to_phone=phone, message=res.answer)
 
             repo = ConversationHistoryRepository(db)
-            repo.add_message(
+            await asyncio.to_thread(
+                repo.add_message,
                 lead_id=lead_id,
                 direction="outbound",
                 message_body=res.answer,
@@ -321,7 +324,8 @@ class ResponseKafkaManager:
                 await ws.send_text_message(to_phone=phone, message=confirmation_msg)
 
             repo = ConversationHistoryRepository(db)
-            repo.add_message(
+            await asyncio.to_thread(
+                repo.add_message,
                 lead_id=lead_id,
                 direction="outbound",
                 message_body=confirmation_msg,
