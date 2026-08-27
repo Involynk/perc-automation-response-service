@@ -29,6 +29,12 @@ def health_check() -> dict:
     return {"status": "healthy"}
 
 
+@app.get("/", tags=["health"])
+def root_check() -> dict:
+    """Root health check endpoint for cloud load balancers."""
+    return {"status": "healthy", "service": "perc-response-service"}
+
+
 # Mount API v1 router under /api/v1 as well as root for direct endpoint access
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(api_router, prefix="")
