@@ -85,6 +85,9 @@ class ResponseKafkaManager:
                 group_id=settings.KAFKA_GROUP_ID,
                 value_deserializer=lambda v: json.loads(v.decode("utf-8")),
                 auto_offset_reset="latest",
+                session_timeout_ms=45000,
+                heartbeat_interval_ms=15000,
+                max_poll_interval_ms=300000,
                 **kafka_kwargs,
             )
             await self.consumer.start()
