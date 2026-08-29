@@ -198,6 +198,18 @@ class ResponseKafkaManager:
         )
         print(f"📤 [KafkaManager] Emitted perc.meeting.create-requested for lead {lead_id}", flush=True)
 
+    async def _process_message_safely(self, topic: str, payload: Dict[str, Any]):
+        """Executes handler in a background task so Kafka consume loop never pauses heartbeats."""
+        try:
+            if topic == settings.KAFKA_TOPIC_LEAD_EVENTS:
+                await self._handle_lead_event(payload)
+            elif topic == settings.KAFKA_TOPIC_ACTION_REQUIRED:
+                await self._handle_followup_action_required(payload)
+            elif topic == settings.KAFKA_TOPIC_MEETING_EVENTS:
+                await self._handle_meeting_event(payload)
+        except Exception as exc:
+            print(f"❌ [KafkaManager] Error handling message on {topic}: {exc}", flush=True)
+
     async def _consume_loop(self):
         print("🔄 [KafkaManager] Consumer loop running...", flush=True)
         try:
@@ -205,15 +217,8 @@ class ResponseKafkaManager:
                 topic = msg.topic
                 payload = msg.value
                 print(f"📥 [KafkaManager] Received event on [{topic}]: eventId={payload.get('eventId', 'N/A')}", flush=True)
-                try:
-                    if topic == settings.KAFKA_TOPIC_LEAD_EVENTS:
-                        await self._handle_lead_event(payload)
-                    elif topic == settings.KAFKA_TOPIC_ACTION_REQUIRED:
-                        await self._handle_followup_action_required(payload)
-                    elif topic == settings.KAFKA_TOPIC_MEETING_EVENTS:
-                        await self._handle_meeting_event(payload)
-                except Exception as exc:
-                    print(f"❌ [KafkaManager] Error handling message on {topic}: {exc}", flush=True)
+                # Dispatch to background task so consumer loop returns immediately to heartbeating node 4
+                asyncio.create_task(self._process_message_safely(topic, payload))
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -245,7 +250,12 @@ class ResponseKafkaManager:
 
         print(f"💬 [KafkaManager] Extracted inbound message: '{latest_message}'", flush=True)
 
-        db = SessionLocal()
+        db = None
+        try:
+            db = SessionLocal()
+        except Exception as db_err:
+            print(f"⚠️ [KafkaManager] Database connection failed ({db_err}). Proceeding without DB session.", flush=True)
+
         try:
             req = ResponseRequest(
                 session_id=f"lead_{lead_id}",
@@ -266,8 +276,6 @@ class ResponseKafkaManager:
                 )
                 return
 
-            # Store inbound message and outbound reply into centralized conversation history
-            repo = ConversationHistoryRepository(db)
             phone = payload.get("sourceReferenceId")
 
             if not phone:
@@ -278,14 +286,19 @@ class ResponseKafkaManager:
                 if not phone.startswith("+"):
                     phone = f"+{phone}"
 
-            # Record inbound message in history
-            await asyncio.to_thread(
-                repo.add_message,
-                lead_id=lead_id,
-                direction="inbound",
-                message_body=latest_message,
-                channel=channel,
-            )
+            # Store inbound message in centralized conversation history if DB available
+            if db is not None:
+                try:
+                    repo = ConversationHistoryRepository(db)
+                    await asyncio.to_thread(
+                        repo.add_message,
+                        lead_id=lead_id,
+                        direction="inbound",
+                        message_body=latest_message,
+                        channel=channel,
+                    )
+                except Exception as repo_err:
+                    print(f"⚠️ [KafkaManager] History repo inbound error: {repo_err}", flush=True)
 
             # Deliver response via WhatsApp if Meta Cloud API configured
             token, phone_id = _get_whatsapp_credentials()
@@ -299,15 +312,20 @@ class ResponseKafkaManager:
             else:
                 print(f"⚠️ [KafkaManager] WhatsApp credentials missing or phone invalid (phone={phone}, token_exists={bool(token)}, phone_id_exists={bool(phone_id)}). Outbound message skipped.", flush=True)
 
-            # Record outbound AI response in history with proper sequence number
-            await asyncio.to_thread(
-                repo.add_message,
-                lead_id=lead_id,
-                direction="outbound",
-                message_body=res.answer,
-                channel=channel,
-                intent=str(res.intent) if res.intent else None,
-            )
+            # Record outbound AI response in history if DB available
+            if db is not None:
+                try:
+                    repo = ConversationHistoryRepository(db)
+                    await asyncio.to_thread(
+                        repo.add_message,
+                        lead_id=lead_id,
+                        direction="outbound",
+                        message_body=res.answer,
+                        channel=channel,
+                        intent=str(res.intent) if res.intent else None,
+                    )
+                except Exception as repo_err:
+                    print(f"⚠️ [KafkaManager] History repo outbound error: {repo_err}", flush=True)
 
             # Emit response.sent event to trigger scheduler-service, timeline-service, analytics-service
             resp_type = "welcome" if is_new_lead else "general_reply"
@@ -315,7 +333,11 @@ class ResponseKafkaManager:
                 lead_id=lead_id, channel=channel, response_type=resp_type
             )
         finally:
-            db.close()
+            if db is not None:
+                try:
+                    db.close()
+                except Exception:
+                    pass
 
     async def _handle_followup_action_required(self, payload: Dict[str, Any]):
         lead_id = payload.get("leadId")
