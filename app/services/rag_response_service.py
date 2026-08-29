@@ -150,6 +150,8 @@ class RAGResponseService:
             sources: List[str] = []
             context_blocks: List[str] = []
 
+            print(f"📖 [RAG] Searching knowledge base for query: '{search_query}'", flush=True)
+
             try:
                 retriever = KnowledgeRetriever(session_db)
                 retrieved_docs = retriever.search(query=search_query, mode="hybrid", top_k=3)
@@ -157,8 +159,9 @@ class RAGResponseService:
                     if doc.source_file and doc.source_file not in sources:
                         sources.append(doc.source_file)
                     context_blocks.append(f"--- Document: {doc.source_file} ---\n{doc.content}")
+                print(f"📚 [RAG] Database vector retrieval found {len(retrieved_docs)} docs.", flush=True)
             except Exception as exc:
-                logger.warning(f"Database vector retrieval unavailable ({exc}). Using file-based knowledge base.")
+                print(f"⚠️ [RAG] Database vector retrieval unavailable ({exc}). Using file-based knowledge base fallback.", flush=True)
                 # Fallback: Search local unstructured knowledge documents
                 import os
                 mock_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "MockData", "unstructured")
@@ -180,7 +183,6 @@ class RAGResponseService:
 
             context_text = "\n\n".join(context_blocks) if context_blocks else "General PERC coaching and admissions information."
 
-
             # 5. Build LLM Generation Prompt
             prompt = (
                 f"{RAG_SYSTEM_PROMPT}\n\n"
@@ -193,6 +195,9 @@ class RAGResponseService:
             # 6. Call LLM Agent
             llm_client = self._get_llm_client()
             final_answer = ""
+
+            client_name = type(llm_client).__name__ if llm_client else "None"
+            print(f"🧠 [RAG] Invoking LLM provider: {client_name}", flush=True)
 
             if llm_client is not None:
                 try:
@@ -218,7 +223,7 @@ class RAGResponseService:
                     elif isinstance(parsed, dict) and "draft_answer" in parsed:
                         final_answer = str(parsed["draft_answer"])
                 except Exception as exc:
-                    logger.warning(f"LLM generation encountered an error: {exc}. Using grounded context fallback.")
+                    print(f"⚠️ [RAG] LLM generation error ({exc}). Using grounded context fallback.", flush=True)
 
             # Fallback if LLM unavailable or output parsing failed
             if not final_answer:
@@ -235,6 +240,8 @@ class RAGResponseService:
                         "Hello! Thank you for reaching out to PERC. We offer comprehensive coaching programs for "
                         "CET, JEE, NEET, and foundation courses. How can we help you today?"
                     )
+
+            print(f"✅ [RAG] Response generation complete. Answer length={len(final_answer)}", flush=True)
 
 
             logger.info(
