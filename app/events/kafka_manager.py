@@ -61,9 +61,10 @@ class ResponseKafkaManager:
 
         # Additional security options for Cloud Kafka (e.g. Confluent Cloud, Upstash, AWS MSK)
         kafka_kwargs: Dict[str, Any] = {}
-        if settings.KAFKA_USE_SSL or (settings.KAFKA_SASL_MECHANISM and settings.KAFKA_SASL_USERNAME):
-            kafka_kwargs["security_protocol"] = "SASL_SSL" if settings.KAFKA_USE_SSL else "SASL_PLAINTEXT"
-            if settings.KAFKA_USE_SSL:
+        use_ssl = settings.KAFKA_USE_SSL or bool(settings.KAFKA_SASL_USERNAME)
+        if use_ssl or settings.KAFKA_SASL_MECHANISM:
+            kafka_kwargs["security_protocol"] = "SASL_SSL" if use_ssl else "SASL_PLAINTEXT"
+            if use_ssl:
                 import ssl
                 ssl_context = ssl.create_default_context()
                 ssl_context.check_hostname = False
@@ -81,7 +82,7 @@ class ResponseKafkaManager:
                 bootstrap_servers=bootstrap_servers,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
                 key_serializer=lambda k: k.encode("utf-8") if k else None,
-                request_timeout_ms=20000,
+                request_timeout_ms=30000,
                 connections_max_idle_ms=54000,
                 retry_backoff_ms=500,
                 **kafka_kwargs,
@@ -97,12 +98,13 @@ class ResponseKafkaManager:
                 group_id=settings.KAFKA_GROUP_ID,
                 value_deserializer=lambda v: json.loads(v.decode("utf-8")),
                 auto_offset_reset="latest",
-                session_timeout_ms=45000,
-                heartbeat_interval_ms=10000,
+                session_timeout_ms=30000,
+                heartbeat_interval_ms=9000,
                 max_poll_interval_ms=300000,
-                request_timeout_ms=20000,
+                request_timeout_ms=30000,
                 connections_max_idle_ms=54000,
                 retry_backoff_ms=500,
+                metadata_max_age_ms=30000,
                 **kafka_kwargs,
             )
             await self.consumer.start()
