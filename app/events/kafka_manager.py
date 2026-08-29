@@ -57,31 +57,48 @@ class ResponseKafkaManager:
             logger.info("Kafka package not available. Skipping Kafka manager startup.")
             return
 
-        bootstrap_servers = settings.KAFKA_BROKERS or settings.KAFKA_BOOTSTRAP_SERVERS
+        raw_servers = settings.KAFKA_BROKERS or settings.KAFKA_BOOTSTRAP_SERVERS
+        if isinstance(raw_servers, str):
+            raw_servers = raw_servers.strip()
+            if raw_servers.startswith("[") and raw_servers.endswith("]"):
+                try:
+                    bootstrap_servers = json.loads(raw_servers)
+                except Exception:
+                    bootstrap_servers = [s.strip(" \"'") for s in raw_servers.strip("[]").split(",") if s.strip()]
+            elif "," in raw_servers:
+                bootstrap_servers = [s.strip() for s in raw_servers.split(",") if s.strip()]
+            else:
+                bootstrap_servers = raw_servers
+        else:
+            bootstrap_servers = raw_servers
 
-        # Additional security options for Cloud Kafka (e.g. Confluent Cloud, Upstash, AWS MSK)
+        sasl_user = settings.KAFKA_SASL_USERNAME or os.getenv("KAFKA_SASL_USERNAME")
+        sasl_pass = settings.KAFKA_SASL_PASSWORD or os.getenv("KAFKA_SASL_PASSWORD")
+        sasl_mech = settings.KAFKA_SASL_MECHANISM or os.getenv("KAFKA_SASL_MECHANISM")
+        use_ssl = settings.KAFKA_USE_SSL or os.getenv("KAFKA_USE_SSL", "").lower() in ("true", "1", "yes") or bool(sasl_user)
+
+        # Security options for Cloud Kafka (Upstash, Confluent Cloud, AWS MSK)
         kafka_kwargs: Dict[str, Any] = {}
-        use_ssl = settings.KAFKA_USE_SSL or bool(settings.KAFKA_SASL_USERNAME)
-        if use_ssl or settings.KAFKA_SASL_MECHANISM:
-            kafka_kwargs["security_protocol"] = "SASL_SSL" if use_ssl else "SASL_PLAINTEXT"
+        if use_ssl or sasl_mech or sasl_user:
+            kafka_kwargs["security_protocol"] = "SASL_SSL" if (use_ssl and sasl_user) else ("SSL" if use_ssl else "SASL_PLAINTEXT")
             if use_ssl:
                 import ssl
                 ssl_context = ssl.create_default_context()
-                ssl_context.check_hostname = False
-                ssl_context.verify_mode = ssl.CERT_NONE
+                # DO NOT set check_hostname = False because aiokafka disables SNI server_hostname if check_hostname is False
                 kafka_kwargs["ssl_context"] = ssl_context
-            if settings.KAFKA_SASL_MECHANISM:
-                kafka_kwargs["sasl_mechanism"] = settings.KAFKA_SASL_MECHANISM
-            if settings.KAFKA_SASL_USERNAME:
-                kafka_kwargs["sasl_plain_username"] = settings.KAFKA_SASL_USERNAME
-            if settings.KAFKA_SASL_PASSWORD:
-                kafka_kwargs["sasl_plain_password"] = settings.KAFKA_SASL_PASSWORD
+            if sasl_mech:
+                kafka_kwargs["sasl_mechanism"] = sasl_mech
+            if sasl_user:
+                kafka_kwargs["sasl_plain_username"] = sasl_user
+            if sasl_pass:
+                kafka_kwargs["sasl_plain_password"] = sasl_pass
 
         try:
             self.producer = AIOKafkaProducer(
                 bootstrap_servers=bootstrap_servers,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
                 key_serializer=lambda k: k.encode("utf-8") if k else None,
+                api_version="auto",
                 request_timeout_ms=30000,
                 connections_max_idle_ms=54000,
                 retry_backoff_ms=500,
@@ -98,6 +115,7 @@ class ResponseKafkaManager:
                 group_id=settings.KAFKA_GROUP_ID,
                 value_deserializer=lambda v: json.loads(v.decode("utf-8")),
                 auto_offset_reset="latest",
+                api_version="auto",
                 session_timeout_ms=30000,
                 heartbeat_interval_ms=9000,
                 max_poll_interval_ms=300000,
