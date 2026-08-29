@@ -49,13 +49,14 @@ class RAGResponseService:
 
     def _get_llm_client(self):
         """Initializes available LLM client (Groq or Ollama)."""
-        provider = (settings.LLM_PROVIDER or "").lower()
-        if settings.LLM_API_KEY:
+        import os
+        api_key = settings.LLM_API_KEY or os.getenv("LLM_API_KEY") or os.getenv("GROQ_API_KEY")
+        if api_key:
             try:
                 from app.agent.providers.groq_client import GroqClient
-                return GroqClient()
+                return GroqClient(api_key=api_key)
             except Exception as exc:
-                logger.warning(f"Failed to initialize GroqClient: {exc}")
+                print(f"⚠️ [RAGResponseService] Failed to initialize GroqClient: {exc}", flush=True)
 
         if provider == "ollama" or settings.OLLAMA_BASE_URL:
             try:

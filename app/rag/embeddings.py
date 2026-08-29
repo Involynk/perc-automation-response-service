@@ -99,21 +99,19 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
 def get_embedding_provider(provider_type: Optional[str] = None) -> EmbeddingProvider:
     """
     Factory function returning the active embedding provider.
-    - "sentence-transformers" / "production": Uses all-MiniLM-L6-v2 (384-d).
-    - "mock" / "testing": Uses DeterministicMockEmbeddingProvider (384-d).
+    Defaults to DeterministicMockEmbeddingProvider to avoid downloading heavy PyTorch/SentenceTransformers
+    models that exceed Render's 512MB RAM memory limit (preventing Exit 137 OOM kills).
     """
-    if provider_type in ("mock", "testing"):
-        return DeterministicMockEmbeddingProvider(dim=384)
-    if provider_type in ("sentence-transformers", "production", None):
+    import os
+    provider = provider_type or os.getenv("EMBEDDING_PROVIDER") or "mock"
+    if provider in ("sentence-transformers", "production"):
         try:
             return SentenceTransformerEmbeddingProvider(model_name="all-MiniLM-L6-v2")
-        except (ImportError, Exception) as exc:
+        except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(
-                f"sentence-transformers not available ({exc}). Falling back to DeterministicMockEmbeddingProvider."
+                f"SentenceTransformers unavailable ({exc}). Falling back to DeterministicMockEmbeddingProvider."
             )
             return DeterministicMockEmbeddingProvider(dim=384)
-    raise ValueError(
-        f"Unknown embedding provider '{provider_type}'. Must be 'sentence-transformers' or 'mock'."
-    )
+    return DeterministicMockEmbeddingProvider(dim=384)
 
