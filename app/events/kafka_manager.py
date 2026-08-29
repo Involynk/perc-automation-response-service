@@ -1,7 +1,8 @@
+import os
 import json
 import logging
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 from datetime import datetime
 
 from app.core.config import settings
@@ -22,6 +23,13 @@ try:
 except ImportError:
     KAFKA_AVAILABLE = False
     logger.warning("aiokafka not installed; Kafka background listener disabled.")
+
+
+def _get_whatsapp_credentials() -> Tuple[Optional[str], Optional[str]]:
+    """Retrieve Meta WhatsApp credentials with environment variable fallbacks."""
+    token = settings.META_ACCESS_TOKEN or os.getenv("META_ACCESS_TOKEN") or os.getenv("WHATSAPP_ACCESS_TOKEN")
+    phone_id = settings.PHONE_NUMBER_ID or os.getenv("PHONE_NUMBER_ID") or os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+    return token, phone_id
 
 
 class ResponseKafkaManager:
@@ -73,6 +81,9 @@ class ResponseKafkaManager:
                 bootstrap_servers=bootstrap_servers,
                 value_serializer=lambda v: json.dumps(v).encode("utf-8"),
                 key_serializer=lambda k: k.encode("utf-8") if k else None,
+                request_timeout_ms=20000,
+                connections_max_idle_ms=54000,
+                retry_backoff_ms=500,
                 **kafka_kwargs,
             )
             await self.producer.start()
@@ -87,8 +98,11 @@ class ResponseKafkaManager:
                 value_deserializer=lambda v: json.loads(v.decode("utf-8")),
                 auto_offset_reset="latest",
                 session_timeout_ms=45000,
-                heartbeat_interval_ms=15000,
+                heartbeat_interval_ms=10000,
                 max_poll_interval_ms=300000,
+                request_timeout_ms=20000,
+                connections_max_idle_ms=54000,
+                retry_backoff_ms=500,
                 **kafka_kwargs,
             )
             await self.consumer.start()
@@ -191,7 +205,7 @@ class ResponseKafkaManager:
         channel = payload.get("channel", "whatsapp")
         history = payload.get("conversationHistory") or []
 
-        # Extract latest message text
+        # Extract latest message text from conversationHistory or direct payload fields
         latest_message = ""
         if history:
             last = history[-1]
@@ -205,7 +219,7 @@ class ResponseKafkaManager:
                 latest_message = last
 
         if not latest_message:
-            latest_message = "Hello, I am interested in PERC courses."
+            latest_message = payload.get("message") or payload.get("text") or "Hello, I am interested in PERC courses."
 
         db = SessionLocal()
         try:
@@ -227,17 +241,17 @@ class ResponseKafkaManager:
                 )
                 return
 
-            # Store both inbound message (if new) and outbound reply into centralized conversation history
+            # Store inbound message and outbound reply into centralized conversation history
             repo = ConversationHistoryRepository(db)
             phone = payload.get("sourceReferenceId")
 
             if not phone:
-                raise ValueError("sourceReferenceId is missing from lead event")
-
-            phone = phone.strip()
-
-            if not phone.startswith("+"):
-                phone = f"+{phone}"
+                logger.warning(f"sourceReferenceId missing from lead event (lead_id={lead_id})")
+                phone = ""
+            else:
+                phone = phone.strip()
+                if not phone.startswith("+"):
+                    phone = f"+{phone}"
 
             # Record inbound message in history
             await asyncio.to_thread(
@@ -249,9 +263,16 @@ class ResponseKafkaManager:
             )
 
             # Deliver response via WhatsApp if Meta Cloud API configured
-            if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
-                ws = WhatsAppService()
-                await ws.send_text_message(to_phone=phone, message=res.answer)
+            token, phone_id = _get_whatsapp_credentials()
+            if token and phone_id and phone:
+                try:
+                    ws = WhatsAppService(meta_access_token=token, phone_number_id=phone_id)
+                    await ws.send_text_message(to_phone=phone, message=res.answer)
+                    logger.info(f"✅ WhatsApp response message delivered to {phone} for lead {lead_id}")
+                except Exception as wa_err:
+                    logger.error(f"❌ Failed to deliver WhatsApp message to {phone}: {wa_err}", exc_info=True)
+            else:
+                logger.warning(f"⚠️ WhatsApp credentials missing or phone invalid (phone={phone}, token={bool(token)}, phone_id={bool(phone_id)}). Outbound message skipped.")
 
             # Record outbound AI response in history with proper sequence number
             await asyncio.to_thread(
@@ -290,13 +311,17 @@ class ResponseKafkaManager:
                 raise ValueError("sourceReferenceId is missing from follow-up event")
 
             phone = phone.strip()
-
             if not phone.startswith("+"):
                 phone = f"+{phone}"
 
-            if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
-                ws = WhatsAppService()
-                await ws.send_text_message(to_phone=phone, message=res.answer)
+            token, phone_id = _get_whatsapp_credentials()
+            if token and phone_id:
+                try:
+                    ws = WhatsAppService(meta_access_token=token, phone_number_id=phone_id)
+                    await ws.send_text_message(to_phone=phone, message=res.answer)
+                    logger.info(f"✅ Outbound WhatsApp follow-up delivered to {phone}")
+                except Exception as wa_err:
+                    logger.error(f"❌ WhatsApp follow-up delivery failed to {phone}: {wa_err}", exc_info=True)
 
             repo = ConversationHistoryRepository(db)
             await asyncio.to_thread(
@@ -339,12 +364,17 @@ class ResponseKafkaManager:
                 raise ValueError("sourceReferenceId is missing from meeting event")
 
             phone = phone.strip()
-
             if not phone.startswith("+"):
                 phone = f"+{phone}"
-            if settings.PHONE_NUMBER_ID and settings.META_ACCESS_TOKEN:
-                ws = WhatsAppService()
-                await ws.send_text_message(to_phone=phone, message=confirmation_msg)
+
+            token, phone_id = _get_whatsapp_credentials()
+            if token and phone_id:
+                try:
+                    ws = WhatsAppService(meta_access_token=token, phone_number_id=phone_id)
+                    await ws.send_text_message(to_phone=phone, message=confirmation_msg)
+                    logger.info(f"✅ Outbound WhatsApp meeting confirmation delivered to {phone}")
+                except Exception as wa_err:
+                    logger.error(f"❌ WhatsApp meeting confirmation delivery failed to {phone}: {wa_err}", exc_info=True)
 
             repo = ConversationHistoryRepository(db)
             await asyncio.to_thread(
@@ -364,3 +394,4 @@ class ResponseKafkaManager:
 
 
 kafka_manager = ResponseKafkaManager()
+
