@@ -14,7 +14,9 @@ from app.schemas.agent import QueryIntent
 from app.services.whatsapp_service import WhatsAppService
 from app.repositories.conversation_history_repository import ConversationHistoryRepository
 
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("kafka_manager")
+logger.setLevel(logging.INFO)
 
 # Fallback in case aiokafka is not installed or Kafka broker is unreachable
 try:
@@ -54,7 +56,7 @@ class ResponseKafkaManager:
 
     async def start(self):
         if not KAFKA_AVAILABLE:
-            logger.info("Kafka package not available. Skipping Kafka manager startup.")
+            print("⚠️ [KafkaManager] aiokafka not installed. Skipping Kafka manager startup.", flush=True)
             return
 
         raw_servers = settings.KAFKA_BROKERS or settings.KAFKA_BOOTSTRAP_SERVERS
@@ -105,7 +107,7 @@ class ResponseKafkaManager:
                 **kafka_kwargs,
             )
             await self.producer.start()
-            logger.info(f"Kafka Producer started successfully on {bootstrap_servers}")
+            print(f"🚀 [KafkaManager] Kafka Producer connected on {bootstrap_servers}", flush=True)
 
             self.consumer = AIOKafkaConsumer(
                 settings.KAFKA_TOPIC_LEAD_EVENTS,
@@ -127,11 +129,11 @@ class ResponseKafkaManager:
             )
             await self.consumer.start()
             self.is_running = True
-            logger.info(f"Kafka Consumer subscribed to topics on {bootstrap_servers}")
+            print(f"📡 [KafkaManager] Subscribed to topics: [{settings.KAFKA_TOPIC_LEAD_EVENTS}, {settings.KAFKA_TOPIC_ACTION_REQUIRED}, {settings.KAFKA_TOPIC_MEETING_EVENTS}]", flush=True)
 
             self.consumer_task = asyncio.create_task(self._consume_loop())
         except Exception as e:
-            logger.warning(f"Failed to start Kafka Manager (Broker may be offline): {e}")
+            print(f"⚠️ [KafkaManager] Failed to start Kafka Manager: {e}", flush=True)
 
     async def stop(self):
         self.is_running = False
@@ -141,7 +143,7 @@ class ResponseKafkaManager:
             await self.consumer.stop()
         if self.producer:
             await self.producer.stop()
-        logger.info("Kafka Manager stopped gracefully.")
+        print("🛑 [KafkaManager] Kafka Manager stopped.", flush=True)
 
     async def publish_response_sent(
         self,
@@ -151,7 +153,6 @@ class ResponseKafkaManager:
         correlation_id: Optional[str] = None,
     ):
         if not self.producer:
-            logger.debug("Producer offline; skipping perc.response.sent publish")
             return
         payload = {
             "eventId": f"evt_resp_{int(datetime.utcnow().timestamp() * 1000)}",
@@ -164,11 +165,10 @@ class ResponseKafkaManager:
         await self.producer.send_and_wait(
             settings.KAFKA_TOPIC_RESPONSE_SENT, key=lead_id, value=payload
         )
-        logger.info(f"Emitted perc.response.sent for lead {lead_id}")
+        print(f"📤 [KafkaManager] Emitted perc.response.sent for lead {lead_id}", flush=True)
 
     async def publish_followup_sent(self, lead_id: str, channel: str = "whatsapp"):
         if not self.producer:
-            logger.debug("Producer offline; skipping perc.followup.sent publish")
             return
         payload = {
             "eventId": f"evt_fu_{int(datetime.utcnow().timestamp() * 1000)}",
@@ -179,13 +179,12 @@ class ResponseKafkaManager:
         await self.producer.send_and_wait(
             settings.KAFKA_TOPIC_FOLLOWUP_SENT, key=lead_id, value=payload
         )
-        logger.info(f"Emitted perc.followup.sent for lead {lead_id}")
+        print(f"📤 [KafkaManager] Emitted perc.followup.sent for lead {lead_id}", flush=True)
 
     async def publish_meeting_create_requested(
         self, lead_id: str, requested_by_message: str, channel: str = "whatsapp"
     ):
         if not self.producer:
-            logger.debug("Producer offline; skipping perc.meeting.create-requested publish")
             return
         payload = {
             "eventId": f"evt_meet_req_{int(datetime.utcnow().timestamp() * 1000)}",
@@ -197,14 +196,15 @@ class ResponseKafkaManager:
         await self.producer.send_and_wait(
             settings.KAFKA_TOPIC_MEETING_CREATE_REQUESTED, key=lead_id, value=payload
         )
-        logger.info(f"Emitted perc.meeting.create-requested for lead {lead_id}")
+        print(f"📤 [KafkaManager] Emitted perc.meeting.create-requested for lead {lead_id}", flush=True)
 
     async def _consume_loop(self):
+        print("🔄 [KafkaManager] Consumer loop running...", flush=True)
         try:
             async for msg in self.consumer:
                 topic = msg.topic
                 payload = msg.value
-                logger.info(f"Received Kafka event on [{topic}]: {payload.get('eventId', 'N/A')}")
+                print(f"📥 [KafkaManager] Received event on [{topic}]: eventId={payload.get('eventId', 'N/A')}", flush=True)
                 try:
                     if topic == settings.KAFKA_TOPIC_LEAD_EVENTS:
                         await self._handle_lead_event(payload)
@@ -213,17 +213,19 @@ class ResponseKafkaManager:
                     elif topic == settings.KAFKA_TOPIC_MEETING_EVENTS:
                         await self._handle_meeting_event(payload)
                 except Exception as exc:
-                    logger.error(f"Error handling message on {topic}: {exc}", exc_info=True)
+                    print(f"❌ [KafkaManager] Error handling message on {topic}: {exc}", flush=True)
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            logger.error(f"Kafka consume loop error: {e}", exc_info=True)
+            print(f"❌ [KafkaManager] Consumer loop exception: {e}", flush=True)
 
     async def _handle_lead_event(self, payload: Dict[str, Any]):
         lead_id = payload.get("leadId")
         is_new_lead = payload.get("isNewLead", False)
         channel = payload.get("channel", "whatsapp")
         history = payload.get("conversationHistory") or []
+
+        print(f"⚡ [KafkaManager] Processing lead event: leadId={lead_id}, isNewLead={is_new_lead}, channel={channel}", flush=True)
 
         # Extract latest message text from conversationHistory or direct payload fields
         latest_message = ""
@@ -241,6 +243,8 @@ class ResponseKafkaManager:
         if not latest_message:
             latest_message = payload.get("message") or payload.get("text") or "Hello, I am interested in PERC courses."
 
+        print(f"💬 [KafkaManager] Extracted inbound message: '{latest_message}'", flush=True)
+
         db = SessionLocal()
         try:
             req = ResponseRequest(
@@ -251,6 +255,7 @@ class ResponseKafkaManager:
             graph = get_response_graph()
             # Run AI pipeline in thread pool to prevent blocking asyncio event loop & Kafka heartbeats
             res = await asyncio.to_thread(generate_response, req, graph=graph)
+            print(f"🤖 [KafkaManager] Generated response answer: '{res.answer[:80]}...'", flush=True)
 
             # Check if meeting booking intent was detected
             meeting_keywords = ["book", "schedule", "meeting", "demo", "call", "appointment", "slot"]
@@ -266,7 +271,7 @@ class ResponseKafkaManager:
             phone = payload.get("sourceReferenceId")
 
             if not phone:
-                logger.warning(f"sourceReferenceId missing from lead event (lead_id={lead_id})")
+                print(f"⚠️ [KafkaManager] sourceReferenceId missing from lead event (lead_id={lead_id})", flush=True)
                 phone = ""
             else:
                 phone = phone.strip()
@@ -288,11 +293,11 @@ class ResponseKafkaManager:
                 try:
                     ws = WhatsAppService(meta_access_token=token, phone_number_id=phone_id)
                     await ws.send_text_message(to_phone=phone, message=res.answer)
-                    logger.info(f"✅ WhatsApp response message delivered to {phone} for lead {lead_id}")
+                    print(f"✅ [KafkaManager] Outbound WhatsApp message delivered to {phone} for lead {lead_id}", flush=True)
                 except Exception as wa_err:
-                    logger.error(f"❌ Failed to deliver WhatsApp message to {phone}: {wa_err}", exc_info=True)
+                    print(f"❌ [KafkaManager] Failed to deliver WhatsApp message to {phone}: {wa_err}", flush=True)
             else:
-                logger.warning(f"⚠️ WhatsApp credentials missing or phone invalid (phone={phone}, token={bool(token)}, phone_id={bool(phone_id)}). Outbound message skipped.")
+                print(f"⚠️ [KafkaManager] WhatsApp credentials missing or phone invalid (phone={phone}, token_exists={bool(token)}, phone_id_exists={bool(phone_id)}). Outbound message skipped.", flush=True)
 
             # Record outbound AI response in history with proper sequence number
             await asyncio.to_thread(
