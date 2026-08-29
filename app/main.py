@@ -23,13 +23,13 @@ app = FastAPI(
 )
 
 
-@app.get("/health", tags=["health"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["health"])
 def health_check() -> dict:
     """Readiness and liveness probe endpoint."""
     return {"status": "healthy"}
 
 
-@app.get("/", tags=["health"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["health"])
 def root_check() -> dict:
     """Root health check endpoint for cloud load balancers."""
     return {"status": "healthy", "service": "perc-response-service"}
