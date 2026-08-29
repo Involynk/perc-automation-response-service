@@ -24,7 +24,7 @@ class KnowledgeRetriever:
         default_rrf_k: int = 60,
     ):
         self.db = db
-        self.embedding_provider = embedding_provider or get_embedding_provider("sentence-transformers")
+        self.embedding_provider = embedding_provider or get_embedding_provider()
         self.default_top_k = default_top_k
         self.default_min_similarity = default_min_similarity
         self.default_rrf_k = default_rrf_k
