@@ -151,6 +151,7 @@ class ResponseKafkaManager:
         channel: str = "whatsapp",
         response_type: str = "general_reply",
         correlation_id: Optional[str] = None,
+        source_reference_id: Optional[str] = None,
     ):
         if not self.producer:
             return
@@ -160,6 +161,7 @@ class ResponseKafkaManager:
             "correlationId": correlation_id or lead_id,
             "responseType": response_type,
             "channel": channel,
+            "sourceReferenceId": source_reference_id or lead_id,
             "sentAt": datetime.utcnow().isoformat() + "Z",
         }
         await self.producer.send_and_wait(
@@ -167,13 +169,19 @@ class ResponseKafkaManager:
         )
         print(f"📤 [KafkaManager] Emitted perc.response.sent for lead {lead_id}", flush=True)
 
-    async def publish_followup_sent(self, lead_id: str, channel: str = "whatsapp"):
+    async def publish_followup_sent(
+        self,
+        lead_id: str,
+        channel: str = "whatsapp",
+        source_reference_id: Optional[str] = None,
+    ):
         if not self.producer:
             return
         payload = {
             "eventId": f"evt_fu_{int(datetime.utcnow().timestamp() * 1000)}",
             "leadId": lead_id,
             "channel": channel,
+            "sourceReferenceId": source_reference_id or lead_id,
             "sentAt": datetime.utcnow().isoformat() + "Z",
         }
         await self.producer.send_and_wait(
@@ -330,7 +338,7 @@ class ResponseKafkaManager:
             # Emit response.sent event to trigger scheduler-service, timeline-service, analytics-service
             resp_type = "welcome" if is_new_lead else "general_reply"
             await self.publish_response_sent(
-                lead_id=lead_id, channel=channel, response_type=resp_type
+                lead_id=lead_id, channel=channel, response_type=resp_type, source_reference_id=phone
             )
         finally:
             if db is not None:
@@ -355,14 +363,14 @@ class ResponseKafkaManager:
             phone = payload.get("sourceReferenceId")
 
             if not phone:
-                raise ValueError("sourceReferenceId is missing from follow-up event")
+                phone = payload.get("phone") or payload.get("leadId") or ""
 
             phone = phone.strip()
-            if not phone.startswith("+"):
+            if phone and not phone.startswith("+"):
                 phone = f"+{phone}"
 
             token, phone_id = _get_whatsapp_credentials()
-            if token and phone_id:
+            if token and phone_id and phone:
                 try:
                     ws = WhatsAppService(meta_access_token=token, phone_number_id=phone_id)
                     await ws.send_text_message(to_phone=phone, message=res.answer)
@@ -380,7 +388,7 @@ class ResponseKafkaManager:
                 intent=str(res.intent) if res.intent else "C12_FOLLOW_UP_CONTEXTUAL",
             )
 
-            await self.publish_followup_sent(lead_id=lead_id, channel=channel)
+            await self.publish_followup_sent(lead_id=lead_id, channel=channel, source_reference_id=phone)
         finally:
             db.close()
 
