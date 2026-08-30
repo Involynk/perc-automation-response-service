@@ -1,17 +1,34 @@
+import asyncio
+import os
+import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.api.v1.router import api_router
-
-
 from app.events.kafka_manager import kafka_manager
+
+
+async def _keep_alive_loop():
+    """Periodically pings self every 5 minutes to prevent Render free instance idle sleep."""
+    url = os.getenv("RENDER_EXTERNAL_URL") or "https://perc-automation-response-service.onrender.com/health"
+    await asyncio.sleep(30)  # Wait 30 seconds after startup
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url)
+                print(f"⏰ [KeepAlive] Self-ping to {url} -> Status {resp.status_code}", flush=True)
+        except Exception as err:
+            print(f"⚠️ [KeepAlive] Self-ping error: {err}", flush=True)
+        await asyncio.sleep(300)  # Ping every 5 minutes (300 seconds)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Application startup lifecycle
     await kafka_manager.start()
+    keep_alive_task = asyncio.create_task(_keep_alive_loop())
     yield
     # Application shutdown lifecycle
+    keep_alive_task.cancel()
     await kafka_manager.stop()
 
 
