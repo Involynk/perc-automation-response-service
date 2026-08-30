@@ -37,6 +37,9 @@ async def send_whatsapp_message(
         "Content-Type": "application/json",
     }
 
+    # Unescape literal backslash-n strings to real newlines for WhatsApp formatting
+    formatted_body = message.replace("\\n", "\n") if message else ""
+
     payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
@@ -44,7 +47,7 @@ async def send_whatsapp_message(
         "type": "text",
         "text": {
             "preview_url": False,
-            "body": message,
+            "body": formatted_body,
         },
     }
 

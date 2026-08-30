@@ -53,6 +53,7 @@ class ResponseKafkaManager:
         self.consumer: Optional[Any] = None
         self.consumer_task: Optional[asyncio.Task] = None
         self.is_running = False
+        self._processed_followups: Dict[str, float] = {}
 
     async def start(self):
         if not KAFKA_AVAILABLE:
@@ -350,6 +351,16 @@ class ResponseKafkaManager:
     async def _handle_followup_action_required(self, payload: Dict[str, Any]):
         lead_id = payload.get("leadId")
         channel = payload.get("channel", "whatsapp")
+
+        # Deduplicate follow-up events within 60 seconds to prevent double messaging
+        import time
+        dedup_key = payload.get("eventId") or f"{lead_id}_{payload.get('triggeredByTimerKey', 'timer')}"
+        now = time.time()
+        self._processed_followups = {k: v for k, v in self._processed_followups.items() if now - v < 300}
+        if dedup_key in self._processed_followups and (now - self._processed_followups[dedup_key]) < 60:
+            print(f"⚠️ [KafkaManager] Skipping duplicate follow-up action for {dedup_key}", flush=True)
+            return
+        self._processed_followups[dedup_key] = now
 
         db = SessionLocal()
         try:

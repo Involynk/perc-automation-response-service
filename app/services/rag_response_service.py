@@ -184,13 +184,33 @@ class RAGResponseService:
             context_text = "\n\n".join(context_blocks) if context_blocks else "General PERC coaching and admissions information."
 
             # 5. Build LLM Generation Prompt
-            prompt = (
-                f"{RAG_SYSTEM_PROMPT}\n\n"
-                f"RELEVANT CONTEXT FROM PERC KNOWLEDGE BASE:\n{context_text}\n\n"
-                f"CONVERSATION HISTORY:\n{json.dumps(formatted_history, ensure_ascii=False, indent=2)}\n\n"
-                f"CURRENT STUDENT ENQUIRY:\n\"{request.message}\"\n\n"
-                f"JSON RESPONSE:"
-            )
+            is_followup = bool(request.metadata and request.metadata.get("is_followup"))
+
+            if is_followup:
+                followup_instructions = (
+                    "CRITICAL FOLLOW-UP RE-ENGAGEMENT INSTRUCTIONS:\n"
+                    "- This is an automated FOLLOW-UP check-in because the student/parent has been inactive.\n"
+                    "- DO NOT send a generic first-time welcome message or dump a huge list of all programs from scratch.\n"
+                    "- Make it sound like a warm, natural follow-up check-in (e.g. 'Hi! 👋 Checking in to see if you have any questions...').\n"
+                    "- Inspect the CONVERSATION HISTORY above: if the student previously asked about a specific program (like NEET, JEE, CET, or Class 10), explicitly reference that program!\n"
+                    "- Keep it concise, friendly, and end with a clear question or invitation to book a counseling slot."
+                )
+                prompt = (
+                    f"{RAG_SYSTEM_PROMPT}\n\n"
+                    f"{followup_instructions}\n\n"
+                    f"RELEVANT CONTEXT FROM PERC KNOWLEDGE BASE:\n{context_text}\n\n"
+                    f"CONVERSATION HISTORY:\n{json.dumps(formatted_history, ensure_ascii=False, indent=2)}\n\n"
+                    f"FOLLOW-UP TRIGGER:\n\"{request.message}\"\n\n"
+                    f"JSON RESPONSE:"
+                )
+            else:
+                prompt = (
+                    f"{RAG_SYSTEM_PROMPT}\n\n"
+                    f"RELEVANT CONTEXT FROM PERC KNOWLEDGE BASE:\n{context_text}\n\n"
+                    f"CONVERSATION HISTORY:\n{json.dumps(formatted_history, ensure_ascii=False, indent=2)}\n\n"
+                    f"CURRENT STUDENT ENQUIRY:\n\"{request.message}\"\n\n"
+                    f"JSON RESPONSE:"
+                )
 
             # 6. Call LLM Agent
             llm_client = self._get_llm_client()
