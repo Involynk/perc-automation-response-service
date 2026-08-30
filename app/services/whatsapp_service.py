@@ -14,6 +14,65 @@ def clean_phone_number(phone: str) -> str:
     return cleaned
 
 
+def format_whatsapp_message(text: str) -> str:
+    """Format and sanitize any text message into clean, native WhatsApp styling.
+
+    1. Unescapes literal \\n into real newlines.
+    2. Replaces Markdown headings (# Heading, ## Heading) with WhatsApp bold (*Heading*).
+    3. Replaces Markdown tables (| Col1 | Col2 |) with neat WhatsApp bullet points.
+    4. Ensures clean paragraph spacing without excessive empty lines.
+    """
+    if not text:
+        return ""
+
+    # 1. Unescape literal \n strings
+    text = text.replace("\\n", "\n")
+
+    # 2. Convert Markdown headings (# Heading, ## Heading) to *Heading*
+    text = re.sub(r'^\s*#{1,6}\s*(.+)$', r'*\1*', text, flags=re.MULTILINE)
+    # Remove any residual raw '# ' or '## ' syntax anywhere in the text
+    text = re.sub(r'#{1,6}\s*', '', text)
+
+    # 3. Convert Markdown tables to WhatsApp bullet lists
+    lines = text.split("\n")
+    formatted_lines = []
+    in_table = False
+    headers = []
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("|") and stripped.endswith("|"):
+            # Skip divider lines like |---|---|
+            if re.match(r'^\|[\s:\|-]+\|$', stripped):
+                continue
+
+            cells = [c.strip() for c in stripped.split("|")[1:-1]]
+
+            if not in_table:
+                # First row treated as table header
+                headers = cells
+                in_table = True
+            else:
+                # Data rows converted to bullet lists
+                if headers and len(cells) == len(headers):
+                    main_col = cells[0]
+                    sub_details = [f"{headers[i]}: {cells[i]}" for i in range(1, len(cells)) if cells[i]]
+                    detail_str = f" ({', '.join(sub_details)})" if sub_details else ""
+                    formatted_lines.append(f"• *{main_col}*{detail_str}")
+                else:
+                    formatted_lines.append("• " + " | ".join(cells))
+        else:
+            in_table = False
+            headers = []
+            formatted_lines.append(line)
+
+    result = "\n".join(formatted_lines)
+
+    # 4. Clean up multiple empty lines (max 2 consecutive newlines)
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result.strip()
+
+
 async def send_whatsapp_message(
     recipient_phone: str,
     message: str,
@@ -37,8 +96,8 @@ async def send_whatsapp_message(
         "Content-Type": "application/json",
     }
 
-    # Unescape literal backslash-n strings to real newlines for WhatsApp formatting
-    formatted_body = message.replace("\\n", "\n") if message else ""
+    # Format and sanitize message to native WhatsApp styling (headings, tables, newlines)
+    formatted_body = format_whatsapp_message(message)
 
     payload = {
         "messaging_product": "whatsapp",
