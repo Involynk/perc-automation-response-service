@@ -69,6 +69,6 @@ PERC's terms and conditions are available at https://perc.co.in/terms.
 ## Contact for Policy Queries
 
 - Phone: +91 7259941873 or +91 8971019220
-- Email: perc.personalised@gmail.com
+- Email: support@perc.co.in
 - Address: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
 - Office Hours: 10:00 AM - 8:00 PM, Monday to Saturday

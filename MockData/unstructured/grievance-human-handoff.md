@@ -26,7 +26,7 @@ When escalating to a human, use the following approach:
 > "I understand your concern and I want to make sure it is addressed properly. Let me connect you with our team directly. Please contact PERC at:
 >
 > - **Phone**: +91 7259941873 or +91 8971019220
-> - **Email**: perc.personalised@gmail.com
+> - **Email**: support@perc.co.in
 > - **WhatsApp**: https://wa.me/917259941873
 > - **Office Hours**: 10:00 AM - 8:00 PM, Monday to Saturday
 >
@@ -52,13 +52,8 @@ When escalating to a human, use the following approach:
 
 - **Phone**: +91 7259941873 (Primary)
 - **Phone**: +91 8971019220 (Secondary)
-- **Email**: perc.personalised@gmail.com
+- **Email**: support@perc.co.in
 - **WhatsApp**: https://wa.me/917259941873
 - **Address**: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
 - **Office Hours**: 10:00 AM - 8:00 PM, Monday to Saturday
 
----
-
-## Refund Policy Reference
-
-Full refund policy available at: https://perc.co.in/refund

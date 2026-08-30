@@ -28,20 +28,30 @@
     }
   ],
   "program_eligibility": [
-    { "program": "PERC Ignite",        "min_class": "Class 6",  "max_class": "Class 6",  "notes": "Open to all Class 6 students" },
-    { "program": "PERC Explorer",      "min_class": "Class 7",  "max_class": "Class 7",  "notes": "Open to all Class 7 students" },
-    { "program": "PERC Challenger",    "min_class": "Class 8",  "max_class": "Class 8",  "notes": "Open to all Class 8 students" },
-    { "program": "PERC Achiever",      "min_class": "Class 9",  "max_class": "Class 9",  "notes": "Open to all Class 9 students" },
-    { "program": "PERC Champion",      "min_class": "Class 10", "max_class": "Class 10", "notes": "Open to all Class 10 students" },
-    { "program": "NEET Foundation",    "min_class": "Class 9",  "max_class": "Class 10", "notes": "Students aspiring for NEET medical entrance" },
-    { "program": "NEET UG",            "min_class": "Class 11", "max_class": "Class 12", "notes": "Students targeting NEET UG after Class 12" },
-    { "program": "JEE Foundation",     "min_class": "Class 9",  "max_class": "Class 10", "notes": "Students aspiring for JEE engineering entrance" },
-    { "program": "IIT-JEE Advanced",   "min_class": "Class 11", "max_class": "Class 12", "notes": "Students targeting JEE Main and JEE Advanced" },
-    { "program": "KCET Crash Course",  "min_class": "Class 12", "max_class": "Class 12", "notes": "Karnataka students targeting KCET" },
-    { "program": "CBSE Board Coaching","min_class": "Class 10", "max_class": "Class 12", "notes": "Students under CBSE curriculum" },
-    { "program": "ICSE Board Coaching","min_class": "Class 9",  "max_class": "Class 10", "notes": "Students under ICSE curriculum" },
-    { "program": "Olympiad Foundation","min_class": "Class 6",  "max_class": "Class 10", "notes": "Students interested in NSO, IMO, NTSE" },
-    { "program": "One-to-One Tuition", "min_class": "Any",      "max_class": "Any",      "notes": "Any student needing personalized individual coaching" }
+    {
+      "program": "CBSE Board",
+      "min_class": "Class 6",
+      "max_class": "Class 12",
+      "notes": "Students studying under the CBSE curriculum."
+    },
+    {
+      "program": "ICSE Board",
+      "min_class": "Class 6",
+      "max_class": "Class 10",
+      "notes": "Students studying under the ICSE curriculum."
+    },
+    {
+      "program": "JEE",
+      "min_class": "Class 11",
+      "max_class": "Class 12",
+      "notes": "Students preparing for JEE Main and JEE Advanced."
+    },
+    {
+      "program": "NEET",
+      "min_class": "Class 11",
+      "max_class": "Class 12",
+      "notes": "Students preparing for NEET UG."
+    }
   ],
   "demo_class": {
     "available": true,

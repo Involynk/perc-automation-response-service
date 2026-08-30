@@ -3,9 +3,25 @@
   "note": "PERC accepts admissions on a rolling basis throughout the year subject to seat availability. Batch sizes are capped at 15-20 students to maintain quality.",
   "seat_limit_per_batch": "15-20 students",
   "batch_slots": [
-    { "slot": "B1", "time": "4:30 PM - 6:30 PM", "days": "Monday to Saturday" },
-    { "slot": "B2", "time": "6:30 PM - 8:30 PM", "days": "Monday to Saturday" },
-    { "slot": "Weekend", "time": "To be confirmed on inquiry", "days": "Saturday/Sunday", "programs": ["JEE", "NEET"] }
+    {
+      "slot": "B1",
+      "time": "4:30 PM - 6:30 PM",
+      "days": "Monday to Saturday"
+    },
+    {
+      "slot": "B2",
+      "time": "6:30 PM - 8:30 PM",
+      "days": "Monday to Saturday"
+    },
+    {
+      "slot": "Weekend",
+      "time": "To be confirmed on inquiry",
+      "days": "Saturday/Sunday",
+      "programs": [
+        "JEE",
+        "NEET"
+      ]
+    }
   ],
   "free_demo": {
     "available": true,
@@ -15,7 +31,7 @@
     "phone": "+91 7259941873",
     "phone_2": "+91 8971019220",
     "whatsapp": "https://wa.me/917259941873",
-    "email": "perc.personalised@gmail.com",
+    "email": "support@perc.co.in",
     "office_hours": "10:00 AM - 8:00 PM, Monday to Saturday"
   }
 }

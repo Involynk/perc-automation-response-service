@@ -23,4 +23,4 @@ If a student needs guidance on local accommodation options near the coaching cen
 
 - Phone: +91 7259941873
 - WhatsApp: https://wa.me/917259941873
-- Email: perc.personalised@gmail.com
+- Email: support@perc.co.in

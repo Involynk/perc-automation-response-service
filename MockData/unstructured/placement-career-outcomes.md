@@ -43,5 +43,5 @@ From testimonials and information published on the PERC website:
 ## Contact for More Information
 
 - Phone: +91 7259941873 or +91 8971019220
-- Email: perc.personalised@gmail.com
-- Website: https://perc.co.in/results (for published student results)
+- Email: support@perc.co.in
+- Website: https://perc.co.in

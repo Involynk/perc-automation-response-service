@@ -26,7 +26,7 @@ PERC currently operates a single main campus located in Begur, South Bengaluru.
 |---|---|
 | Primary Phone | +91 7259941873 |
 | Secondary Phone | +91 8971019220 |
-| Email | perc.personalised@gmail.com |
+| Email | support@perc.co.in |
 | Support Email | support@perc.co.in |
 | WhatsApp | https://wa.me/917259941873 |
 

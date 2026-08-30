@@ -16,7 +16,7 @@ Schedule a **free demo class** or a **free counseling call** to:
 How to book:
 - Call: +91 7259941873 or +91 8971019220
 - WhatsApp: https://wa.me/917259941873
-- Email: perc.personalised@gmail.com
+- Email: support@perc.co.in
 - Online: https://perc.co.in/contact
 
 ---
@@ -69,6 +69,6 @@ PERC accepts enrollments on a rolling basis throughout the year, subject to seat
 | Phone | +91 7259941873 |
 | Phone 2 | +91 8971019220 |
 | WhatsApp | https://wa.me/917259941873 |
-| Email | perc.personalised@gmail.com |
+| Email | support@perc.co.in |
 | Address | 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114 |
 | Office Hours | 10:00 AM - 8:00 PM, Monday to Saturday |

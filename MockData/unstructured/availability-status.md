@@ -35,7 +35,7 @@ To confirm seat availability in a specific batch or program, contact PERC:
 
 - **Phone**: +91 7259941873 or +91 8971019220
 - **WhatsApp**: https://wa.me/917259941873
-- **Email**: perc.personalised@gmail.com
+- **Email**: support@perc.co.in
 - **Walk-in**: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
 
 ## Free Demo Class

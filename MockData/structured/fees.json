@@ -22,19 +22,29 @@
     "additional_charges": "Not specified; contact PERC for details"
   },
   "programs": [
-    { "id": "perc-ignite",       "name": "PERC Ignite",        "duration": "1 Year",   "fee": "Contact for price" },
-    { "id": "perc-explorer",     "name": "PERC Explorer",      "duration": "1 Year",   "fee": "Contact for price" },
-    { "id": "perc-challenger",   "name": "PERC Challenger",    "duration": "1 Year",   "fee": "Contact for price" },
-    { "id": "perc-achiever",     "name": "PERC Achiever",      "duration": "1 Year",   "fee": "Contact for price" },
-    { "id": "perc-champion",     "name": "PERC Champion",      "duration": "1 Year",   "fee": "Contact for price" },
-    { "id": "neet-foundation",   "name": "NEET Foundation",    "duration": "1 Year",   "fee": "Contact for price" },
-    { "id": "neet-ug",           "name": "NEET UG",            "duration": "2 Years",  "fee": "Contact for price" },
-    { "id": "jee-foundation",    "name": "JEE Foundation",     "duration": "1 Year",   "fee": "Contact for price" },
-    { "id": "iit-jee-advanced",  "name": "IIT-JEE Advanced",   "duration": "2 Years",  "fee": "Contact for price" },
-    { "id": "kcet-crash-course", "name": "KCET Crash Course",  "duration": "6 Months", "fee": "Contact for price" },
-    { "id": "cbse-board-coaching","name": "CBSE Board Coaching","duration": "1 Year",  "fee": "Contact for price" },
-    { "id": "icse-board-coaching","name": "ICSE Board Coaching","duration": "1 Year",  "fee": "Contact for price" },
-    { "id": "olympiad-foundation","name": "Olympiad Foundation","duration": "1 Year",  "fee": "Contact for price" },
-    { "id": "one-to-one-tuition","name": "One-to-One Tuition", "duration": "Flexible", "fee": "Contact for price" }
+    {
+      "id": "cbse-board",
+      "name": "CBSE Board",
+      "duration": "1 Year",
+      "fee": "Contact for price"
+    },
+    {
+      "id": "icse-board",
+      "name": "ICSE Board",
+      "duration": "1 Year",
+      "fee": "Contact for price"
+    },
+    {
+      "id": "jee",
+      "name": "JEE",
+      "duration": "2 Years",
+      "fee": "Contact for price"
+    },
+    {
+      "id": "neet",
+      "name": "NEET",
+      "duration": "2 Years",
+      "fee": "Contact for price"
+    }
   ]
 }

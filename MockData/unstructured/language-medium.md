@@ -35,4 +35,4 @@ If a prospective student has specific language requirements, contact PERC before
 
 - Phone: +91 7259941873 or +91 8971019220
 - WhatsApp: https://wa.me/917259941873
-- Email: perc.personalised@gmail.com
+- Email: support@perc.co.in
