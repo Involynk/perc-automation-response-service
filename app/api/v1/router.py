@@ -1,6 +1,7 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import response, whatsapp
+from app.api.v1.endpoints import knowledge, response, whatsapp
 
 api_router = APIRouter()
 api_router.include_router(response.router, tags=["response"])
 api_router.include_router(whatsapp.router, tags=["whatsapp"])
+api_router.include_router(knowledge.router, tags=["knowledge"])

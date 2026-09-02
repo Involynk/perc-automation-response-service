@@ -1,10 +1,16 @@
 import asyncio
 import os
+from pathlib import Path
+
 import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from app.api.v1.router import api_router
 from app.events.kafka_manager import kafka_manager
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 async def _keep_alive_loop():
@@ -55,3 +61,17 @@ def root_check() -> dict:
 # Mount API v1 router under /api/v1 as well as root for direct endpoint access
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(api_router, prefix="")
+
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/knowledge", include_in_schema=False)
+def knowledge_ui() -> FileResponse:
+    """Admin UI for managing RAG knowledge documents without redeploying the service."""
+    index_path = STATIC_DIR / "knowledge" / "index.html"
+    if not index_path.exists():
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Knowledge UI is not packaged in this build.")
+    return FileResponse(index_path)

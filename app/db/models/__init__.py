@@ -5,6 +5,7 @@ from app.db.models.eligibility import EligibilityPolicyModel, ProgramEligibility
 from app.db.models.availability import AvailabilityInfoModel
 from app.db.models.admission_status import AdmissionStatusModel
 from app.db.models.knowledge_chunk import KnowledgeChunkModel
+from app.db.models.knowledge_document import KnowledgeDocumentModel
 from app.db.models.conversation_history import ConversationModel
 from app.db.models.processed_event import ProcessedEventModel
 
@@ -18,6 +19,7 @@ __all__ = [
     "AvailabilityInfoModel",
     "AdmissionStatusModel",
     "KnowledgeChunkModel",
+    "KnowledgeDocumentModel",
     "ConversationModel",
     "ProcessedEventModel",
 ]

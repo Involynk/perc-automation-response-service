@@ -16,7 +16,7 @@ class KnowledgeChunkModel(Base):
 
     id: Mapped[str] = mapped_column(String(128), primary_key=True)
     document_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    source_file: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_file: Mapped[str] = mapped_column(String(255), nullable=False)
     category: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     document_type: Mapped[str] = mapped_column(String(50), nullable=False)
     section: Mapped[str] = mapped_column(String(200), nullable=False)

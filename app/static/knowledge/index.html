@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PERC Knowledge Base</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --slate: #475569;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --ok: #15803d;
+      --ok-bg: #f0fdf4;
+      --warn: #b45309;
+      --warn-bg: #fffbeb;
+      --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: "Fira Sans", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    button, a, label, summary { cursor: pointer; }
+    button, input, textarea, select {
+      font-family: inherit;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      background: var(--primary);
+      color: #fff;
+      font-weight: 600;
+      padding: 0.6rem 1rem;
+      transition: background 180ms ease, transform 180ms ease;
+    }
+    button:hover { background: var(--primary-hover); }
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+    button.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    button.secondary:hover { background: #f1f5f9; }
+    button.danger {
+      background: #fff;
+      color: var(--danger);
+      border: 1px solid #fecaca;
+    }
+    button.danger:hover { background: var(--danger-bg); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .app { max-width: 1280px; margin: 0 auto; padding: 1.5rem; }
+    header.top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: -0.02em;
+    }
+    .brand p {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      max-width: 42rem;
+      line-height: 1.5;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .stat, .panel, .dropzone, .editor, .login-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .stat { padding: 1rem 1.1rem; }
+    .stat span { display: block; color: var(--muted); font-size: 0.8rem; font-weight: 500; }
+    .stat strong { display: block; margin-top: 0.35rem; font-size: 1.4rem; }
+    .layout {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+    .panel { padding: 1rem; }
+    .panel h2, .editor h2 {
+      margin: 0 0 0.85rem;
+      font-size: 0.95rem;
+      color: var(--slate);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .toolbar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+    .toolbar input {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+    }
+    .dropzone {
+      padding: 1.1rem;
+      text-align: center;
+      border-style: dashed;
+      color: var(--muted);
+      margin-bottom: 0.85rem;
+    }
+    .dropzone.drag { border-color: var(--primary); background: #eff6ff; color: var(--primary); }
+    .doc-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 62vh; overflow: auto; }
+    .doc-item {
+      text-align: left;
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+      width: 100%;
+      padding: 0.75rem;
+    }
+    .doc-item:hover, .doc-item.active { border-color: var(--primary); background: #f8fbff; }
+    .doc-item small { display: block; color: var(--muted); margin-top: 0.25rem; font-weight: 400; }
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: var(--ok-bg);
+      color: var(--ok);
+    }
+    .badge.failed { background: var(--danger-bg); color: var(--danger); }
+    .badge.processing { background: var(--warn-bg); color: var(--warn); }
+    .editor { padding: 1.1rem; min-height: 70vh; }
+    .editor-empty { color: var(--muted); padding: 3rem 1rem; text-align: center; }
+    .meta-row, .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 180px; }
+    .field label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+    .field input, .field textarea {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.55rem 0.7rem;
+      color: var(--text);
+    }
+    textarea {
+      width: 100%;
+      min-height: 320px;
+      resize: vertical;
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+    .chunks { margin-top: 1rem; }
+    .chunk {
+      border-top: 1px solid var(--line);
+      padding: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    .chunk pre {
+      white-space: pre-wrap;
+      font-family: "Fira Code", ui-monospace, monospace;
+      font-size: 0.78rem;
+      color: var(--slate);
+      background: #f8fafc;
+      padding: 0.7rem;
+      border-radius: 8px;
+      overflow: auto;
+      max-height: 180px;
+    }
+    .toast {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      background: var(--text);
+      color: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      display: none;
+      max-width: 26rem;
+      z-index: 20;
+    }
+    .login-wrap {
+      min-height: 80vh;
+      display: grid;
+      place-items: center;
+    }
+    .login-card { width: min(420px, 100%); padding: 1.6rem; }
+    .login-card h1 { margin-top: 0; }
+    .login-card p { color: var(--muted); line-height: 1.5; }
+    .hidden { display: none !important; }
+    .try-box textarea { min-height: 90px; font-family: inherit; }
+    .answer {
+      white-space: pre-wrap;
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 0.8rem;
+      border: 1px solid var(--line);
+      line-height: 1.5;
+    }
+    @media (max-width: 900px) {
+      .layout, .stats { grid-template-columns: 1fr; }
+      header.top { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div id="loginView" class="login-wrap">
+      <div class="login-card">
+        <h1>PERC Knowledge Base</h1>
+        <p>Upload Markdown, PDF, or Word documents. They are chunked, embedded, and stored in PostgreSQL so the response service uses the new knowledge immediately — no redeploy.</p>
+        <div class="field" style="margin: 1rem 0;">
+          <label for="apiKey">Internal API key</label>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="X-Internal-API-Key" />
+        </div>
+        <button id="loginBtn" type="button">Open console</button>
+        <p style="font-size:0.85rem;">Leave blank in local development if no key is configured.</p>
+      </div>
+    </div>
+
+    <div id="appView" class="hidden">
+      <header class="top">
+        <div class="brand">
+          <h1>Knowledge Base</h1>
+          <p>Source documents are stored in the database, embedded, and retrieved by semantic similarity. Editing a file updates live RAG answers without rebuilding the service.</p>
+        </div>
+        <button id="logoutBtn" class="secondary" type="button">Sign out</button>
+      </header>
+
+      <section class="stats">
+        <div class="stat"><span>Documents</span><strong id="statDocs">0</strong></div>
+        <div class="stat"><span>Indexed chunks</span><strong id="statChunks">0</strong></div>
+        <div class="stat"><span>Selected status</span><strong id="statStatus">—</strong></div>
+      </section>
+
+      <div class="layout">
+        <aside class="panel">
+          <h2>Library</h2>
+          <div id="dropzone" class="dropzone">
+            Drop .md, .pdf, .docx, .txt here or
+            <label style="color:var(--primary);font-weight:600;">browse<input id="fileInput" type="file" accept=".md,.txt,.pdf,.docx,.html,.htm,.csv" hidden /></label>
+          </div>
+          <div class="toolbar">
+            <input id="searchInput" type="search" placeholder="Search documents" />
+            <button id="refreshBtn" class="secondary" type="button">Refresh</button>
+          </div>
+          <div id="docList" class="doc-list"></div>
+        </aside>
+
+        <main class="editor">
+          <div id="emptyState" class="editor-empty">Select a document or upload a new one to start.</div>
+          <div id="docEditor" class="hidden">
+            <h2>Document</h2>
+            <div class="meta-row">
+              <div class="field">
+                <label for="docTitle">Title</label>
+                <input id="docTitle" />
+              </div>
+              <div class="field">
+                <label for="docCategory">Category</label>
+                <input id="docCategory" placeholder="optional, e.g. policy" />
+              </div>
+            </div>
+            <p id="docMeta" style="color:var(--muted);font-size:0.9rem;"></p>
+            <div class="field">
+              <label for="docContent">Extracted text (Markdown)</label>
+              <textarea id="docContent" spellcheck="false"></textarea>
+            </div>
+            <div class="actions">
+              <button id="saveBtn" type="button">Save & re-embed</button>
+              <button id="reindexBtn" class="secondary" type="button">Reindex</button>
+              <button id="deleteBtn" class="danger" type="button">Delete</button>
+            </div>
+
+            <div class="try-box">
+              <h2>Test retrieval</h2>
+              <p style="color:var(--muted);margin-top:0;">Ask a question. The live response service searches embeddings in the database.</p>
+              <textarea id="tryQuery" placeholder="What documents are required for admission?"></textarea>
+              <div class="actions">
+                <button id="tryBtn" type="button">Ask</button>
+              </div>
+              <div id="tryAnswer" class="answer hidden"></div>
+            </div>
+
+            <div class="chunks">
+              <h2>Chunks</h2>
+              <div id="chunkList"></div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script>
+    const API = "/api/v1";
+    const KEY_STORAGE = "perc_knowledge_api_key";
+    const state = { documents: [], selectedId: null, selected: null };
+
+    const $ = (id) => document.getElementById(id);
+
+    function toast(message) {
+      const el = $("toast");
+      el.textContent = message;
+      el.style.display = "block";
+      setTimeout(() => { el.style.display = "none"; }, 3200);
+    }
+
+    function headers(extra = {}) {
+      const key = sessionStorage.getItem(KEY_STORAGE) || "";
+      const h = { ...extra };
+      if (key) h["X-Internal-API-Key"] = key;
+      return h;
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(API + path, {
+        ...options,
+        headers: headers(options.headers || {}),
+      });
+      if (res.status === 204) return null;
+      const text = await res.text();
+      let data = null;
+      try { data = text ? JSON.parse(text) : null; } catch { data = { detail: text }; }
+      if (!res.ok) {
+        const detail = data && data.detail ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : res.statusText;
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    function showApp() {
+      $("loginView").classList.add("hidden");
+      $("appView").classList.remove("hidden");
+    }
+
+    function badgeClass(status) {
+      if (status === "failed") return "badge failed";
+      if (status === "processing") return "badge processing";
+      return "badge";
+    }
+
+    function renderList() {
+      const q = ($("searchInput").value || "").toLowerCase();
+      const items = state.documents.filter((d) =>
+        !q || [d.title, d.filename, d.id].join(" ").toLowerCase().includes(q)
+      );
+      $("statDocs").textContent = String(state.documents.length);
+      $("statChunks").textContent = String(state.documents.reduce((sum, d) => sum + (d.chunk_count || 0), 0));
+      $("docList").innerHTML = items.map((d) => `
+        <button class="doc-item ${d.id === state.selectedId ? "active" : ""}" type="button" data-id="${d.id}">
+          <strong>${escapeHtml(d.title)}</strong>
+          <span class="${badgeClass(d.status)}">${escapeHtml(d.status)}</span>
+          <small>${escapeHtml(d.filename)} · ${d.chunk_count} chunks</small>
+        </button>
+      `).join("") || '<p style="color:var(--muted)">No documents yet.</p>';
+      $("docList").querySelectorAll(".doc-item").forEach((btn) => {
+        btn.addEventListener("click", () => selectDocument(btn.dataset.id));
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    async function loadDocuments() {
+      const data = await api("/knowledge/documents");
+      state.documents = data.documents || [];
+      $("statChunks").textContent = String(data.total_chunks || 0);
+      renderList();
+    }
+
+    async function selectDocument(id) {
+      state.selectedId = id;
+      const doc = await api("/knowledge/documents/" + encodeURIComponent(id));
+      state.selected = doc;
+      $("emptyState").classList.add("hidden");
+      $("docEditor").classList.remove("hidden");
+      $("docTitle").value = doc.title;
+      $("docCategory").value = doc.category || "";
+      $("docContent").value = doc.raw_content || "";
+      $("statStatus").textContent = doc.status;
+      $("docMeta").textContent = `${doc.filename} · ${doc.content_type} · ${doc.chunk_count} chunks · ${doc.token_count} tokens · updated ${new Date(doc.updated_at).toLocaleString()}`;
+      renderList();
+      const chunks = await api("/knowledge/documents/" + encodeURIComponent(id) + "/chunks");
+      $("chunkList").innerHTML = (chunks.chunks || []).map((c) => `
+        <article class="chunk">
+          <strong>${escapeHtml(c.heading)}</strong>
+          <small style="color:var(--muted)"> · ${c.token_count} tokens · ${escapeHtml(c.category)}</small>
+          <pre>${escapeHtml(c.chunk_content)}</pre>
+        </article>
+      `).join("") || "<p style='color:var(--muted)'>No chunks indexed.</p>";
+    }
+
+    async function uploadFile(file) {
+      const body = new FormData();
+      body.append("file", file);
+      const data = await fetch(API + "/knowledge/documents", {
+        method: "POST",
+        headers: headers(),
+        body,
+      }).then(async (res) => {
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.detail || res.statusText);
+        return payload;
+      });
+      toast(data.message || "Indexed");
+      await loadDocuments();
+      await selectDocument(data.document.id);
+    }
+
+    $("loginBtn").addEventListener("click", async () => {
+      sessionStorage.setItem(KEY_STORAGE, $("apiKey").value.trim());
+      try {
+        await loadDocuments();
+        showApp();
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+    $("logoutBtn").addEventListener("click", () => {
+      sessionStorage.removeItem(KEY_STORAGE);
+      location.reload();
+    });
+    $("refreshBtn").addEventListener("click", () => loadDocuments().catch((err) => toast(err.message)));
+    $("searchInput").addEventListener("input", renderList);
+
+    const dropzone = $("dropzone");
+    dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag"); });
+    dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
+    dropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropzone.classList.remove("drag");
+      const file = e.dataTransfer.files[0];
+      if (file) uploadFile(file).catch((err) => toast(err.message));
+    });
+    $("fileInput").addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) uploadFile(file).catch((err) => toast(err.message));
+      e.target.value = "";
+    });
+
+    $("saveBtn").addEventListener("click", async () => {
+      if (!state.selectedId) return;
+      try {
+        const data = await api("/knowledge/documents/" + encodeURIComponent(state.selectedId), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: $("docTitle").value,
+            category: $("docCategory").value || null,
+            raw_content: $("docContent").value,
+          }),
+        });
+        toast(data.message);
+        await loadDocuments();
+        await selectDocument(state.selectedId);
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+
+    $("reindexBtn").addEventListener("click", async () => {
+      if (!state.selectedId) return;
+      try {
+        const data = await api("/knowledge/documents/" + encodeURIComponent(state.selectedId) + "/reindex", { method: "POST" });
+        toast(data.message);
+        await selectDocument(state.selectedId);
+        await loadDocuments();
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+
+    $("deleteBtn").addEventListener("click", async () => {
+      if (!state.selectedId) return;
+      if (!confirm("Delete this document and its embeddings from the live knowledge base?")) return;
+      try {
+        await api("/knowledge/documents/" + encodeURIComponent(state.selectedId), { method: "DELETE" });
+        state.selectedId = null;
+        state.selected = null;
+        $("docEditor").classList.add("hidden");
+        $("emptyState").classList.remove("hidden");
+        $("statStatus").textContent = "—";
+        await loadDocuments();
+        toast("Document removed from the live knowledge base.");
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+
+    $("tryBtn").addEventListener("click", async () => {
+      const message = $("tryQuery").value.trim();
+      if (!message) return;
+      try {
+        const data = await api("/response", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: "knowledge-ui", message }),
+        });
+        $("tryAnswer").classList.remove("hidden");
+        $("tryAnswer").textContent = (data.answer || "") + (data.sources && data.sources.length ? "\n\nSources: " + data.sources.join(", ") : "");
+      } catch (err) {
+        toast(err.message);
+      }
+    });
+
+    if (sessionStorage.getItem(KEY_STORAGE) !== null) {
+      loadDocuments().then(showApp).catch(() => {});
+    }
+  </script>
+</body>
+</html>
