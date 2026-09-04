@@ -1,4 +1,4 @@
-﻿# Required Documents for PERC Admission
+# Required Documents for PERC Admission
 
 ## Overview
 
@@ -19,13 +19,4 @@ PERC does not publicly list a formal documents checklist on its website. The doc
 Additionally, for JEE, NEET, and KCET programs, students may be asked to provide:
 - Class 10 mark sheet (if applying for Class 11-12 programs)
 - Board affiliation information (CBSE / ICSE / State Board)
-
-## How to Confirm the Exact Document List
-
-Contact PERC before your visit to confirm the exact documents required:
-
-- Phone: +91 7259941873 or +91 8971019220
-- WhatsApp: https://wa.me/917259941873
-- Email: support@perc.co.in
-- Walk-in: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
-- Office Hours: 10:00 AM - 8:00 PM, Monday to Saturday
+

@@ -1,4 +1,4 @@
-﻿# Ambiguous and Incomplete Queries for PERC
+# Ambiguous and Incomplete Queries for PERC
 
 This file contains examples of vague, ambiguous, or incomplete queries that a user might send, along with the recommended clarification approach and data needed to respond.
 
@@ -25,7 +25,7 @@ This file contains examples of vague, ambiguous, or incomplete queries that a us
 
 **User**: "Where are you?"
 **Issue**: Single-word or one-phrase location query.
-**Recommended Response**: "PERC is located at 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru, Karnataka 560114. You can call +91 7259941873 for directions or reach out on WhatsApp: https://wa.me/917259941873"
+**Recommended Response**: "PERC is located at 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru, Karnataka 560114."
 
 ---
 
@@ -53,4 +53,4 @@ Were you asking about a specific batch or program timing?"
 
 **User**: "Do you have IIT JEE Advance course?"
 **Issue**: Minor typo — "Advance" instead of "Advanced"
-**Recommended Response**: Assume the user means IIT-JEE Advanced. "Yes! PERC offers the IIT-JEE Advanced program — a comprehensive 2-year preparation course covering JEE Main and JEE Advanced. Batch size is 15-20 students. For fees and seat availability, please call +91 7259941873."
+**Recommended Response**: Assume the user means IIT-JEE Advanced. "Yes! PERC offers the IIT-JEE Advanced program — a comprehensive 2-year preparation course covering JEE Main and JEE Advanced. Batch size is 15-20 students. Feel free to reach out to our counseling team for fee details and seat availability."

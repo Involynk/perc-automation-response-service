@@ -1,4 +1,4 @@
-﻿# PERC Fees and Pricing
+# PERC Fees and Pricing
 
 ## Fee Transparency Policy
 
@@ -6,14 +6,7 @@ PERC does not publicly publish exact fee amounts on its website. All fee details
 
 ## How to Get Fee Information
 
-To obtain the current fee for any program:
-
-1. **Call or WhatsApp**: +91 7259941873 or +91 8971019220
-2. **WhatsApp chat**: https://wa.me/917259941873
-3. **Email**: support@perc.co.in
-4. **Walk in**: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
-   - Office hours: 10:00 AM - 8:00 PM, Monday to Saturday
-5. **Book a free demo class**: The free demo session includes a counseling discussion where program details and fees are explained.
+To obtain the current fee for any program, parents or students can book a free demo class or counseling session where program details, customization, and exact fee structure are explained.
 
 ## What Is Included in Fees
 

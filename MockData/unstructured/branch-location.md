@@ -1,4 +1,4 @@
-﻿# PERC Branch and Location
+# PERC Branch and Location
 
 ## Main Campus
 
@@ -20,16 +20,6 @@ PERC currently operates a single main campus located in Begur, South Bengaluru.
 - The campus is in Visvapriya Layout, Begur, which is accessible from Begur Road and Electronic City Flyover.
 - Easily reachable by auto-rickshaw, cab (Ola, Uber), or personal vehicle.
 
-## Contact Details
-
-| Contact Type | Details |
-|---|---|
-| Primary Phone | +91 7259941873 |
-| Secondary Phone | +91 8971019220 |
-| Email | support@perc.co.in |
-| Support Email | support@perc.co.in |
-| WhatsApp | https://wa.me/917259941873 |
-
 ## Office Timings
 
 | Days | Timing |
@@ -50,8 +40,3 @@ PERC currently operates a single main campus located in Begur, South Bengaluru.
 - Latitude: 12.8703
 - Longitude: 77.6153
 - Region: IN-KA (Karnataka, India)
-
-## Online Presence
-
-- Website: https://perc.co.in
-- Google Maps: Searchable as PERC Personalized Education Research Centre, Begur

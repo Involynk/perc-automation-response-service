@@ -1,4 +1,4 @@
-﻿# PERC Eligibility Criteria
+# PERC Eligibility Criteria
 
 ## General Eligibility
 
@@ -41,11 +41,4 @@ JEE and NEET preparation focuses on the respective competitive-exam syllabus alo
 ## Diagnostic Assessment
 
 The diagnostic assessment is used to understand the student's academic level and recommend the appropriate learning path. It is intended for evaluation and batch/program placement rather than as a competitive entrance examination.
-
-## Contact to Check Eligibility
-
-If unsure which program suits the student:
-
-- Phone: +91 7259941873 or +91 8971019220
-- WhatsApp: https://wa.me/917259941873
-- Email: support@perc.co.in
+

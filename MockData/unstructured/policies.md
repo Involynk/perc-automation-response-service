@@ -1,4 +1,4 @@
-﻿# PERC Policies
+# PERC Policies
 
 ## Academic Policies
 
@@ -47,10 +47,8 @@ All new students undergo a **diagnostic assessment test** to determine their cur
 
 ## Refund Policy
 
-Refund details are available on the PERC website at https://perc.co.in/refund.
-For specific refund queries, contact PERC directly:
-- Phone: +91 7259941873
-- Email: perc.personalised@gmail.com
+Refund details are available on the PERC website.
+For specific refund queries, please connect with the PERC admissions team.
 
 ---
 
@@ -65,10 +63,4 @@ PERC's privacy policy is published on the website at https://perc.co.in/privacy.
 PERC's terms and conditions are available at https://perc.co.in/terms.
 
 ---
-
-## Contact for Policy Queries
-
-- Phone: +91 7259941873 or +91 8971019220
-- Email: support@perc.co.in
-- Address: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
-- Office Hours: 10:00 AM - 8:00 PM, Monday to Saturday
+

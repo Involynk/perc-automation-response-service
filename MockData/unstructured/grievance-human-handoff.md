@@ -1,4 +1,4 @@
-﻿# PERC Grievance Handling and Human Handoff
+# PERC Grievance Handling and Human Handoff
 
 This file defines the grievance handling approach for PERC and describes when and how to escalate a conversation to a human team member.
 
@@ -23,14 +23,7 @@ The following types of queries must always be escalated to the PERC human team:
 
 When escalating to a human, use the following approach:
 
-> "I understand your concern and I want to make sure it is addressed properly. Let me connect you with our team directly. Please contact PERC at:
->
-> - **Phone**: +91 7259941873 or +91 8971019220
-> - **Email**: support@perc.co.in
-> - **WhatsApp**: https://wa.me/917259941873
-> - **Office Hours**: 10:00 AM - 8:00 PM, Monday to Saturday
->
-> Our team will get back to you as soon as possible."
+> "I understand your concern and I want to make sure it is addressed properly. Let me connect you with our team directly. Our staff will assist you as soon as possible during office hours (10:00 AM - 8:00 PM, Monday to Saturday)."
 
 ---
 
@@ -46,14 +39,4 @@ When escalating to a human, use the following approach:
 | Study material not received | Admin | Low |
 | General inquiry not answered | Support team | Low |
 
----
-
-## PERC Contact for Grievances
-
-- **Phone**: +91 7259941873 (Primary)
-- **Phone**: +91 8971019220 (Secondary)
-- **Email**: support@perc.co.in
-- **WhatsApp**: https://wa.me/917259941873
-- **Address**: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
-- **Office Hours**: 10:00 AM - 8:00 PM, Monday to Saturday
 

@@ -146,21 +146,50 @@ class SemanticMarkdownChunker:
         # Flush any remaining buffer
         flush_current_chunk()
 
-        # If document had no headers, create at least one chunk if content exists
+        # If document had no headers or chunks were empty, split on paragraph boundaries
         if not chunks and document.raw_content.strip():
-            full_text = f"# {doc_title}\n\n{document.raw_content.strip()}"
-            tokens = self.estimate_tokens(full_text)
-            chunks.append(
-                RawChunk(
-                    chunk_id=self.generate_chunk_id(document.document_id, 0, full_text),
-                    document_id=document.document_id,
-                    source_file=document.filename,
-                    section=doc_title,
-                    heading=doc_title,
-                    chunk_index=0,
-                    content=full_text,
-                    token_count=tokens,
+            paragraphs = [p.strip() for p in document.raw_content.split("\n\n") if p.strip()]
+            current_paragraph_buffer: List[str] = []
+            buf_tokens = 0
+            
+            for p in paragraphs:
+                p_tokens = self.estimate_tokens(p)
+                if buf_tokens + p_tokens > self.target_max_tokens and current_paragraph_buffer:
+                    body = "\n\n".join(current_paragraph_buffer)
+                    full_text = f"# {doc_title}\n\n{body}"
+                    chunks.append(
+                        RawChunk(
+                            chunk_id=self.generate_chunk_id(document.document_id, chunk_counter, full_text),
+                            document_id=document.document_id,
+                            source_file=document.filename,
+                            section=doc_title,
+                            heading=doc_title,
+                            chunk_index=chunk_counter,
+                            content=full_text,
+                            token_count=self.estimate_tokens(full_text),
+                        )
+                    )
+                    chunk_counter += 1
+                    current_paragraph_buffer = [p]
+                    buf_tokens = p_tokens
+                else:
+                    current_paragraph_buffer.append(p)
+                    buf_tokens += p_tokens
+
+            if current_paragraph_buffer:
+                body = "\n\n".join(current_paragraph_buffer)
+                full_text = f"# {doc_title}\n\n{body}"
+                chunks.append(
+                    RawChunk(
+                        chunk_id=self.generate_chunk_id(document.document_id, chunk_counter, full_text),
+                        document_id=document.document_id,
+                        source_file=document.filename,
+                        section=doc_title,
+                        heading=doc_title,
+                        chunk_index=chunk_counter,
+                        content=full_text,
+                        token_count=self.estimate_tokens(full_text),
+                    )
                 )
-            )
 
         return chunks

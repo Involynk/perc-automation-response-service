@@ -68,6 +68,16 @@ class KnowledgeIngestionPipeline:
         tier_3_count = sum(1 for d in all_docs if d.tier == 3)
         eligible_docs = [d for d in all_docs if d.tier != 3]
 
+        if db is not None:
+            from app.db.models.course import CourseModel
+            from app.db.models.branch import BranchModel
+            existing_courses = {c[0] for c in db.query(CourseModel.id).all()}
+            existing_branches = {b[0] for b in db.query(BranchModel.id).all()}
+            if existing_courses:
+                self.enricher.valid_course_ids = existing_courses
+            if existing_branches:
+                self.enricher.valid_branch_ids = existing_branches
+
         enriched_chunks = self.process_all_documents()
         total_tokens = sum(c.token_count for c in enriched_chunks)
         dim = self.embedding_provider.dimension

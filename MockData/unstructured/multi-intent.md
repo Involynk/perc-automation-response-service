@@ -1,4 +1,4 @@
-﻿# Multi-Intent Query Examples for PERC
+# Multi-Intent Query Examples for PERC
 
 This file contains example multi-intent queries that a prospective student or parent might ask, along with the relevant data points needed to answer them. These are used for training response models.
 
@@ -14,7 +14,6 @@ This file contains example multi-intent queries that a prospective student or pa
 - Duration: 2 Years
 - Fee: Contact PERC directly (not published online)
 - Eligibility: Students in Class 11 or 12 targeting JEE Main and JEE Advanced
-- Contact: +91 7259941873, https://wa.me/917259941873
 
 ---
 
@@ -27,7 +26,6 @@ This file contains example multi-intent queries that a prospective student or pa
 - Batch B1: 4:30 PM - 6:30 PM, Monday to Saturday
 - Batch B2: 6:30 PM - 8:30 PM, Monday to Saturday
 - Weekend NEET batches: Available on inquiry
-- Phone: +91 7259941873
 
 ---
 
@@ -39,7 +37,6 @@ This file contains example multi-intent queries that a prospective student or pa
 - Suitable programs: PERC Achiever (Class 9 board prep), NEET Foundation (if NEET aspirant), JEE Foundation (if JEE aspirant)
 - Admission Steps: Book free demo → Visit campus → Diagnostic assessment → Choose program → Start learning
 - Free demo available: Yes
-- Phone: +91 7259941873
 
 ---
 
@@ -51,7 +48,6 @@ This file contains example multi-intent queries that a prospective student or pa
 - Batch size: Maximum 15-20 students
 - Teaching style: Concept-based, personalized, with individual attention
 - Fees: Not published online; shared during free counseling/demo session
-- Contact: +91 7259941873, perc.personalised@gmail.com
 
 ---
 
@@ -63,4 +59,3 @@ This file contains example multi-intent queries that a prospective student or pa
 - Program: One-to-One Tuition
 - Subject choice: Yes, any subject or combination including Maths only
 - Schedule: Fully flexible, customized to student and faculty availability
-- Contact to discuss: +91 7259941873

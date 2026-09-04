@@ -1,4 +1,4 @@
-﻿# PERC Hostel and Accommodation
+# PERC Hostel and Accommodation
 
 ## Does PERC Offer Hostel or Accommodation Facilities?
 
@@ -16,11 +16,4 @@ PERC is located in Visvapriya Layout, Begur, Bengaluru — a residential area in
 - Good connectivity to Electronic City and the surrounding tech corridor
 - Availability of private PG accommodations in the surrounding locality
 - Proximity to residential neighborhoods
-
-## Contact PERC for Local Guidance
-
-If a student needs guidance on local accommodation options near the coaching center, they can contact PERC who may be able to informally suggest known PG options in the area:
-
-- Phone: +91 7259941873
-- WhatsApp: https://wa.me/917259941873
-- Email: support@perc.co.in
+

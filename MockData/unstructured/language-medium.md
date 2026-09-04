@@ -1,4 +1,4 @@
-﻿# PERC Language and Medium of Instruction
+# PERC Language and Medium of Instruction
 
 ## Primary Language of Instruction
 
@@ -28,11 +28,4 @@ PERC acknowledges that some students from Kannada-medium schools may join. Facul
 ## KCET and Karnataka Board Students
 
 For KCET aspirants, the exam itself is conducted in English and Kannada. PERC KCET Crash Course is primarily taught in English with support available in Kannada.
-
-## Contact for Language Queries
-
-If a prospective student has specific language requirements, contact PERC before enrollment to confirm faculty availability in the required language:
-
-- Phone: +91 7259941873 or +91 8971019220
-- WhatsApp: https://wa.me/917259941873
-- Email: support@perc.co.in
+

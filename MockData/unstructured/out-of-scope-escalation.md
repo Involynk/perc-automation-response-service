@@ -1,4 +1,4 @@
-﻿# Out-of-Scope and Escalation Queries for PERC
+# Out-of-Scope and Escalation Queries for PERC
 
 This file contains examples of queries that fall outside PERC scope, along with the recommended handling approach.
 
@@ -45,7 +45,7 @@ When a query cannot be answered by the bot and requires direct human interventio
 - Special accommodation requests
 - Grievances
 
-**Escalation Response**: "This query needs direct attention from our team. Please contact PERC at +91 7259941873 or email perc.personalised@gmail.com and our staff will assist you."
+**Escalation Response**: "This query needs direct attention from our team. Please connect with PERC directly and our staff will assist you."
 
 ---
 
@@ -53,4 +53,4 @@ When a query cannot be answered by the bot and requires direct human interventio
 
 **User**: "My child is having a panic attack before exams."
 **Handling**: Immediate compassionate response + escalate to parent/guardian.
-**Response**: "I am very sorry to hear that. Please ensure your child's safety first. For immediate support, contact a mental health helpline. For exam-related stress, PERC faculty are available to discuss strategies — please call +91 7259941873 to speak with our team."
+**Response**: "I am very sorry to hear that. Please ensure your child's safety first. For immediate support, contact a mental health helpline. For exam-related stress, PERC faculty are available to discuss strategies — please connect directly with our team."

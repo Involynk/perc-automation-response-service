@@ -1,4 +1,4 @@
-﻿# PERC Placement and Career Outcomes
+# PERC Placement and Career Outcomes
 
 ## About PERC and Career Outcomes
 
@@ -39,9 +39,4 @@ From testimonials and information published on the PERC website:
 - Job placement services (not a vocational institute)
 - College counseling (not a formal service, but informal guidance may be provided)
 - Hostel or accommodation
-
-## Contact for More Information
-
-- Phone: +91 7259941873 or +91 8971019220
-- Email: support@perc.co.in
-- Website: https://perc.co.in
+

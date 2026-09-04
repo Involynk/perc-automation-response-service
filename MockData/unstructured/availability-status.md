@@ -1,4 +1,4 @@
-﻿# PERC Availability and Status
+# PERC Availability and Status
 
 ## Current Admission Status
 
@@ -31,13 +31,8 @@ One-to-One Tuition sessions are scheduled flexibly based on mutual availability 
 
 ## How to Check Availability
 
-To confirm seat availability in a specific batch or program, contact PERC:
-
-- **Phone**: +91 7259941873 or +91 8971019220
-- **WhatsApp**: https://wa.me/917259941873
-- **Email**: support@perc.co.in
-- **Walk-in**: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
+To confirm seat availability in a specific batch or program, parents or students can reach out to the PERC admissions team.
 
 ## Free Demo Class
 
-A free demo class is available before enrollment. Book a slot by calling or messaging PERC.
+A free demo class is available before enrollment. Prospective students can book a slot with PERC counselors.

@@ -26,11 +26,4 @@ Students and parents can:
 2. Choose from CBSE Board, ICSE Board, JEE, or NEET
 3. Book a free demo class or counseling call to get expert guidance on the right program
 4. Complete the diagnostic assessment to help determine the appropriate learning path
-
-## Contact for Program Guidance
-
-- Phone: +91 7259941873 | +91 8971019220
-- WhatsApp: wa.me/917259941873
-- Email: support@perc.co.in
-- Walk-in: 531, 20th Cross Rd, 1st Block, Visvapriya Layout, Begur, Bengaluru 560114
-- Hours: 10:00 AM - 8:00 PM, Monday to Saturday
+
